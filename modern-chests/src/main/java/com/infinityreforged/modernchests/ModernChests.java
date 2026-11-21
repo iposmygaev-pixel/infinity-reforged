@@ -4,6 +4,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import cpw.mods.fml.common.Mod;
+import cpw.mods.fml.common.Mod.EventHandler;
+import cpw.mods.fml.common.event.FMLServerStartingEvent;
+import net.minecraft.launchwrapper.Launch;
 
 /**
  * Modern Chests: chests can be placed next to each other as in Minecraft 1.13+. A chest joins a single chest
@@ -21,4 +24,12 @@ public class ModernChests {
     public static final String VERSION = "0.1.0";
 
     public static final Logger LOG = LogManager.getLogger(NAME);
+
+    @EventHandler
+    public void serverStarting(FMLServerStartingEvent event) {
+        // Test command only in the development environment.
+        if (Boolean.TRUE.equals(Launch.blackboard.get("fml.deobfuscatedEnvironment"))) {
+            event.registerServerCommand(new ChestTestCommand());
+        }
+    }
 }
