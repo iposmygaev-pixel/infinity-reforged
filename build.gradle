@@ -207,18 +207,35 @@ tasks.register('installShaders') {
             logger.lifecycle("  installed ${shaderPack.file}")
         }
 
-        // Default shader options: a finer shadow map stops the player's shadow from flickering while jumping
-        // (Fast profile: 1024 px over 90 blocks ~ 0.18 block per texel; 2048 over 60 ~ 0.06).
-        // Options the player already set in Shader Options are kept.
+        // Default shader options:
+        //  - finer shadow map (Fast profile: 1024 px over 90 blocks ~ 0.18 block per texel);
+        //  - TAA: the shadow map follows the player in 2-block steps, so shadows shimmer while falling;
+        //    temporal anti-aliasing blends frames and hides it (the pack's Fancy profile uses it too).
+        // A value is (re)written only if it is missing or still equals what the installer wrote last time,
+        // so anything the player changed in Shader Options is kept. Remembered in shaderpacks/.infinity-reforged.json.
+        def defaults = [shadowMapResolution: '4096', shadowDistance: '60.0', TAA: 'true']
         def shaderOptions = new File(dir, shaderPack.file + '.txt')
-        def optionLines = shaderOptions.isFile() ? shaderOptions.readLines('UTF-8') : []
-        def defaults = [shadowMapResolution: '2048', shadowDistance: '60.0']
-        def added = defaults.findAll { key, value -> !optionLines.any { it.startsWith("${key}=") } }
-        if (added) {
-            added.each { key, value -> optionLines << "${key}=${value}" }
-            shaderOptions.write(optionLines.join(System.lineSeparator()) + System.lineSeparator(), 'UTF-8')
-            logger.lifecycle("  shader options: ${added.collect { k, v -> "${k}=${v}" }.join(', ')}")
+        def stateFile = new File(dir, '.infinity-reforged.json')
+        def state = stateFile.isFile() ? (new JsonSlurper().parse(stateFile) as Map) : [:]
+        if (!state && shaderOptions.isFile()) {
+            // Values written by the previous installer version, before this state file existed.
+            state = [shadowMapResolution: '2048', shadowDistance: '60.0']
         }
+        def optLines = shaderOptions.isFile() ? shaderOptions.readLines('UTF-8') : []
+        def optCurrent = optLines.findAll { it.contains('=') }.collectEntries { l -> def i = l.indexOf('='); [l.substring(0, i), l.substring(i + 1)] }
+        def written = [:]
+        defaults.each { key, value ->
+            def have = optCurrent[key]
+            if (have == null || (have == state[key] && have != value)) {
+                if (have == null) optLines << "${key}=${value}" else optLines[optLines.findIndexOf { it.startsWith("${key}=") }] = "${key}=${value}"
+                written[key] = value
+            }
+        }
+        if (written) {
+            shaderOptions.write(optLines.join(System.lineSeparator()) + System.lineSeparator(), 'UTF-8')
+            logger.lifecycle("  shader options: ${written.collect { k, v -> "${k}=${v}" }.join(', ')}")
+        }
+        stateFile.write(JsonOutput.toJson(defaults), 'UTF-8')
 
         // Select it in OptiFine unless the player chose another shader pack.
         def options = new File(instanceDir, 'optionsshaders.txt')
