@@ -1,0 +1,183 @@
+import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
+
+import java.util.zip.ZipEntry
+import java.util.zip.ZipFile
+import java.util.zip.ZipOutputStream
+
+// Subprojects (the mods) must be configured before the install tasks look at them.
+evaluationDependsOnChildren()
+
+// ---------------------------------------------------------------------------------------------
+// Settings. Priority: -Pname=value on the command line > local.properties > default.
+//
+//   instanceDir   modpack instance (folder that contains "mods")
+//                 default: <home>/curseforge/minecraft/Instances/FTB Infinity Evolved
+//   serverDir     optional: a server folder to install the mods into as well
+//   minecraftDir  official launcher folder, used to build the asset pack from a modern version
+//   assetsVersion optional: which modern version to take sounds/sprites from (default: newest)
+// ---------------------------------------------------------------------------------------------
+def localProps = new Properties()
+def localFile = file('local.properties')
+if (localFile.exists()) localFile.withReader('UTF-8') { localProps.load(it) }
+
+def setting = { String name, String fallback ->
+    def value = findProperty(name) ?: localProps.getProperty(name)
+    value = value?.toString()?.trim()
+    return value ? value : fallback
+}
+
+def home = System.getProperty('user.home')
+def os = System.getProperty('os.name').toLowerCase(Locale.ROOT)
+def defaultMinecraftDir = os.contains('win') ? "${System.getenv('APPDATA')}/.minecraft"
+    : os.contains('mac') ? "${home}/Library/Application Support/minecraft" : "${home}/.minecraft"
+
+def instanceDir = file(setting('instanceDir', "${home}/curseforge/minecraft/Instances/FTB Infinity Evolved"))
+def serverDirSetting = setting('serverDir', null)
+def minecraftDir = file(setting('minecraftDir', defaultMinecraftDir))
+def assetsVersion = setting('assetsVersion', null)
+
+def modProjects = subprojects.findAll { it.plugins.hasPlugin('com.gtnewhorizons.retrofuturagradle') }
+
+/** The release (reobfuscated) jar of a mod project. */
+def releaseJar = { Project p ->
+    p.layout.buildDirectory.file("libs/${p.base.archivesName.get()}-${p.version}.jar").get().asFile
+}
+
+def installInto = { File target ->
+    def mods = new File(target, 'mods')
+    if (!mods.isDirectory()) {
+        throw new GradleException("No 'mods' folder in ${target}. Set instanceDir/serverDir in local.properties.")
+    }
+    modProjects.each { p ->
+        def prefix = "${p.base.archivesName.get()}-"
+        // Remove every older version of this mod so only one copy stays in the pack.
+        mods.listFiles().findAll { it.name.startsWith(prefix) && it.name.endsWith('.jar') }.each {
+            it.delete()
+            logger.lifecycle("  removed ${it.name}")
+        }
+        def jar = releaseJar(p)
+        def dest = new File(mods, jar.name)
+        dest.bytes = jar.bytes
+        logger.lifecycle("  installed ${jar.name}")
+    }
+}
+
+tasks.register('installMods') {
+    group = 'infinity reforged'
+    description = 'Builds all mods and copies them into the modpack instance (and serverDir, if set).'
+    dependsOn modProjects.collect { "${it.path}:assemble" }
+    doLast {
+        logger.lifecycle("Instance: ${instanceDir}")
+        installInto(instanceDir)
+        if (serverDirSetting) {
+            logger.lifecycle("Server: ${serverDirSetting}")
+            installInto(file(serverDirSetting))
+        }
+    }
+}
+
+/** Version-like folder names compared numerically: 1.21.10 > 1.21.9. */
+def versionKey = { String v -> v.tokenize('.').collect { it as int } }
+def compareVersions = { List a, List b ->
+    for (int i = 0; i < Math.max(a.size(), b.size()); i++) {
+        int x = i < a.size() ? a[i] : 0
+        int y = i < b.size() ? b[i] : 0
+        if (x != y) return x <=> y
+    }
+    return 0
+}
+
+tasks.register('installAssets') {
+    group = 'infinity reforged'
+    description = 'Builds the Modern Combat asset pack from your own modern Minecraft install and enables it in the instance.'
+    doLast {
+        def versionsDir = new File(minecraftDir, 'versions')
+        def candidates = (versionsDir.listFiles() ?: []).findAll {
+            it.name ==~ /[\d.]+/ && new File(it, "${it.name}.jar").isFile() && new File(it, "${it.name}.json").isFile()
+        }*.name
+        def modern = candidates.findAll { compareVersions(versionKey(it), [1, 20, 2]) >= 0 }
+        def version = assetsVersion ?: modern.max { a, b -> compareVersions(versionKey(a), versionKey(b)) }
+        if (!version || !candidates.contains(version)) {
+            logger.warn("Skipping asset pack: no Minecraft 1.20.2+ found in ${minecraftDir}. " +
+                'Launch a modern version once in the official launcher, or set minecraftDir in local.properties.')
+            return
+        }
+        logger.lifecycle("Asset pack from Minecraft ${version} (${minecraftDir})")
+
+        def slurper = new JsonSlurper()
+        def versionJson = slurper.parse(new File(versionsDir, "${version}/${version}.json"))
+        def index = slurper.parse(new File(minecraftDir, "assets/indexes/${versionJson.assetIndex.id}.json"))
+
+        def packs = new File(instanceDir, 'resourcepacks')
+        packs.mkdirs()
+        def packName = 'ModernCombat-Assets.zip'
+        def zipFile = new File(packs, packName)
+
+        def soundPrefix = 'minecraft/sounds/entity/player/attack/'
+        def sounds = [:].withDefault { [] }
+        int textures = 0
+        zipFile.withOutputStream { stream ->
+            def zip = new ZipOutputStream(stream)
+            def put = { String path, byte[] data ->
+                zip.putNextEntry(new ZipEntry(path))
+                zip.write(data)
+                zip.closeEntry()
+            }
+            put('pack.mcmeta', JsonOutput.prettyPrint(JsonOutput.toJson(
+                [pack: [pack_format: 1, description: "Modern Combat: sounds and sprites from Minecraft ${version}"]]))
+                .getBytes('UTF-8'))
+
+            index.objects.each { String key, info ->
+                if (!key.startsWith(soundPrefix) || !key.endsWith('.ogg')) return
+                def name = key.substring(soundPrefix.length())
+                def event = name.replaceAll(/\d*\.ogg$/, '')
+                def object = new File(minecraftDir, "assets/objects/${info.hash.substring(0, 2)}/${info.hash}")
+                if (!object.isFile()) return
+                put("assets/moderncombat/sounds/attack/${name}", object.bytes)
+                sounds[event] << "attack/${name - '.ogg'}"
+            }
+            def soundsJson = sounds.collectEntries { event, files -> ["attack.${event}", [category: 'player', sounds: files.sort()]] }
+            put('assets/moderncombat/sounds.json', JsonOutput.prettyPrint(JsonOutput.toJson(soundsJson)).getBytes('UTF-8'))
+
+            def sprites = ['crosshair_attack_indicator_background', 'crosshair_attack_indicator_progress',
+                           'crosshair_attack_indicator_full', 'hotbar_attack_indicator_background',
+                           'hotbar_attack_indicator_progress'].collect { "textures/gui/sprites/hud/${it}.png" }
+            sprites += (0..7).collect { "textures/particle/sweep_${it}.png" }
+            new ZipFile(new File(versionsDir, "${version}/${version}.jar")).withCloseable { jar ->
+                sprites.each { path ->
+                    def entry = jar.getEntry("assets/minecraft/${path}")
+                    if (entry) {
+                        put("assets/moderncombat/${path}", jar.getInputStream(entry).bytes)
+                        textures++
+                    }
+                }
+            }
+            zip.finish()
+        }
+        logger.lifecycle("  ${packName}: ${sounds.size()} sound events, ${textures} textures")
+
+        // Enable the pack in options.txt (1.7.10 format: resourcePacks:["a.zip","b.zip"]).
+        def options = new File(instanceDir, 'options.txt')
+        if (options.isFile()) {
+            def lines = options.readLines('UTF-8')
+            def i = lines.findIndexOf { it.startsWith('resourcePacks:') }
+            def list = i >= 0 ? (slurper.parseText(lines[i].substring('resourcePacks:'.length())) as List) : []
+            if (!list.contains(packName)) {
+                list << packName
+                def line = 'resourcePacks:' + JsonOutput.toJson(list)
+                if (i >= 0) lines[i] = line else lines << line
+                options.write(lines.join(System.lineSeparator()) + System.lineSeparator(), 'UTF-8')
+                logger.lifecycle('  enabled in options.txt')
+            }
+        } else {
+            logger.lifecycle('  options.txt not found yet: enable the pack once in Options > Resource Packs')
+        }
+    }
+}
+
+tasks.register('install') {
+    group = 'infinity reforged'
+    description = 'Builds and installs everything into the modpack: mods and the asset pack. Close the game first.'
+    dependsOn 'installMods', 'installAssets'
+}

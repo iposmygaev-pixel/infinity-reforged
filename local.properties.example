@@ -1,0 +1,12 @@
+# Copy to local.properties (not committed) to override the defaults. Use forward slashes.
+
+# Modpack instance (the folder that contains "mods").
+# Default: <home>/curseforge/minecraft/Instances/FTB Infinity Evolved
+#instanceDir=D:/Games/FTB Infinity Evolved
+
+# Also install the mods into a server.
+#serverDir=D:/Servers/infinity
+
+# Official launcher folder with a modern Minecraft version (for sounds and sprites). Default: %APPDATA%/.minecraft
+#minecraftDir=C:/Users/you/AppData/Roaming/.minecraft
+#assetsVersion=1.21.1

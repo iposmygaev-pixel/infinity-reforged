@@ -12,3 +12,4 @@ bin/
 *.zip
 __pycache__/
 /*.jar
+local.properties
