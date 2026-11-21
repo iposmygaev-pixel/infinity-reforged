@@ -23,12 +23,15 @@ public class ShieldRenderer implements IItemRenderer {
     @Override
     public boolean handleRenderType(ItemStack item, ItemRenderType type) {
         return type == ItemRenderType.EQUIPPED || type == ItemRenderType.EQUIPPED_FIRST_PERSON
-            || type == ItemRenderType.ENTITY;
+            || type == ItemRenderType.ENTITY
+            || type == ItemRenderType.INVENTORY;
     }
 
     @Override
     public boolean shouldUseRenderHelper(ItemRenderType type, ItemStack item, ItemRendererHelper helper) {
-        return type == ItemRenderType.ENTITY && helper == ItemRendererHelper.ENTITY_BOBBING;
+        if (type == ItemRenderType.ENTITY) return helper == ItemRendererHelper.ENTITY_BOBBING;
+        // Plain frame in hand (only a -0.5 offset) instead of Forge's flat-item transform.
+        return helper == ItemRendererHelper.EQUIPPED_BLOCK;
     }
 
     private static boolean blocking(Object entity, ItemStack stack) {
@@ -43,15 +46,27 @@ public class ShieldRenderer implements IItemRenderer {
             .getTextureManager()
             .bindTexture(TEXTURE);
         GL11.glPushMatrix();
+        Object holder = data.length > 1 ? data[1] : null;
         switch (type) {
             case EQUIPPED_FIRST_PERSON:
-                ShieldPose.firstPerson(blocking(data.length > 1 ? data[1] : null, item));
+                if (blocking(holder, item)) {
+                    // Raised shield: placed directly in camera space (x right, y up, -z forward).
+                    GL11.glLoadIdentity();
+                    ShieldPose.apply("fpBlock");
+                } else {
+                    ShieldPose.apply("fpIdle");
+                }
                 break;
             case EQUIPPED:
-                ShieldPose.thirdPerson(blocking(data.length > 1 ? data[1] : null, item));
+                ShieldPose.apply(blocking(holder, item) ? "tpBlock" : "tpIdle");
+                break;
+            case INVENTORY:
+                // Same 3D model as the modern inventory icon.
+                GL11.glEnable(GL11.GL_DEPTH_TEST);
+                ShieldPose.apply("inventory");
                 break;
             default:
-                ShieldPose.ground();
+                ShieldPose.apply("ground");
                 break;
         }
         model.render();
