@@ -135,14 +135,44 @@ public final class ChestHooks {
         world.setBlockMetadataWithNotify(x, y, z, facing, 3);
     }
 
+    /** Clicked face of the placement in progress (x, y, z, side), recorded by onBlockPlaced. */
+    private static final ThreadLocal<int[]> PLACEMENT = new ThreadLocal<int[]>();
+
+    /** Added to BlockChest: called by ItemBlock before the block is set, with the clicked face. */
+    public static int onBlockPlaced(Block block, World world, int x, int y, int z, int side, float hitX, float hitY,
+        float hitZ, int meta) {
+        PLACEMENT.set(new int[] { x, y, z, side });
+        return meta;
+    }
+
+    private static boolean sameAxis(int a, int b) {
+        return (a == 2 || a == 3) == (b == 2 || b == 3);
+    }
+
+    /**
+     * 1.13+ ChestBlock.getStateForPlacement:
+     * <ul>
+     * <li>sneaking and clicking the side of a single chest: join that chest and take its facing;</li>
+     * <li>sneaking otherwise: single chest;</li>
+     * <li>not sneaking: join a single chest directly to the left or right that faces the same way.</li>
+     * </ul>
+     */
     public static void onBlockPlacedBy(Block block, World world, int x, int y, int z, EntityLivingBase placer,
         ItemStack stack) {
+        int[] placement = PLACEMENT.get();
+        PLACEMENT.remove();
+        int clickedSide = placement != null && placement[0] == x && placement[1] == y && placement[2] == z
+            ? placement[3]
+            : -1;
+
         int rotation = MathHelper.floor_double(placer.rotationYaw * 4.0F / 360.0F + 0.5D) & 3;
         int facing = rotation == 0 ? 2 : rotation == 1 ? 5 : rotation == 2 ? 3 : 4;
-        world.setBlockMetadataWithNotify(x, y, z, facing, 3);
 
         TileEntity te = world.getTileEntity(x, y, z);
-        if (!(te instanceof TileEntityChest)) return;
+        if (!(te instanceof TileEntityChest)) {
+            world.setBlockMetadataWithNotify(x, y, z, facing, 3);
+            return;
+        }
         TileEntityChest chest = (TileEntityChest) te;
         if (stack.hasDisplayName()) chest.func_145976_a(stack.getDisplayName());
 
@@ -151,9 +181,24 @@ public final class ChestHooks {
             field().setByte(chest, SINGLE);
         } catch (IllegalAccessException ignored) {}
 
-        byte pair = SINGLE;
-        if (!placer.isSneaking()) {
-            // Candidates: directly left / right of the chest's front.
+        TileEntityChest partner = null;
+        ForgeDirection partnerSide = ForgeDirection.UNKNOWN;
+        if (placer.isSneaking()) {
+            if (clickedSide >= 2 && clickedSide <= 5) {
+                // The clicked chest is behind the clicked face.
+                ForgeDirection toClicked = ForgeDirection.getOrientation(clickedSide)
+                    .getOpposite();
+                TileEntityChest clicked = neighbour(world, chest, toClicked, block);
+                if (clicked != null && available(world, clicked, block)) {
+                    int clickedFacing = world.getBlockMetadata(clicked.xCoord, clicked.yCoord, clicked.zCoord);
+                    if (clickedFacing >= 2 && !sameAxis(clickedFacing, clickedSide)) {
+                        facing = clickedFacing;
+                        partner = clicked;
+                        partnerSide = toClicked;
+                    }
+                }
+            }
+        } else {
             ForgeDirection[] sides = facing == 2 || facing == 3
                 ? new ForgeDirection[] { ForgeDirection.WEST, ForgeDirection.EAST }
                 : new ForgeDirection[] { ForgeDirection.NORTH, ForgeDirection.SOUTH };
@@ -162,15 +207,22 @@ public final class ChestHooks {
                 if (other == null) continue;
                 if (world.getBlockMetadata(other.xCoord, other.yCoord, other.zCoord) != facing) continue;
                 if (!available(world, other, block)) continue;
-                pair = (byte) side.ordinal();
-                setPair(
-                    other,
-                    (byte) side.getOpposite()
-                        .ordinal());
+                partner = other;
+                partnerSide = side;
                 break;
             }
         }
-        setPair(chest, pair);
+
+        world.setBlockMetadataWithNotify(x, y, z, facing, 3);
+        if (partner != null) {
+            setPair(
+                partner,
+                (byte) partnerSide.getOpposite()
+                    .ordinal());
+            setPair(chest, (byte) partnerSide.ordinal());
+        } else {
+            setPair(chest, SINGLE);
+        }
     }
 
     /** BlockChest.func_149951_m: the inventory opened / used by hoppers, honouring the recorded pairing. */

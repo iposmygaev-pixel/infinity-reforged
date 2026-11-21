@@ -45,6 +45,21 @@ public class ChestTestCommand extends CommandBase {
             log(sender, "client " + x + " " + y + " " + z + ": " + ClientChestCheck.describe(x, y, z));
             return;
         }
+        if ("click".equals(args[0])) {
+            // click <x> <y> <z> <side> <yaw> [sneak]: right-click face `side` of block x,y,z holding a chest
+            int side = parseInt(sender, args[4]);
+            float yaw = (float) parseDouble(sender, args[5]);
+            boolean sneak = args.length > 6 && "sneak".equals(args[6]);
+            float oldYaw = player.rotationYaw;
+            player.rotationYaw = yaw;
+            player.setSneaking(sneak);
+            boolean placed = new ItemStack(Blocks.chest)
+                .tryPlaceItemIntoWorld(player, world, x, y, z, side, 0.5F, 0.5F, 0.5F);
+            player.setSneaking(false);
+            player.rotationYaw = oldYaw;
+            log(sender, "click " + x + " " + y + " " + z + " side=" + side + " yaw=" + yaw + (sneak ? " sneak" : "") + " -> " + placed);
+            return;
+        }
         if ("place".equals(args[0])) {
             float yaw = (float) parseDouble(sender, args[4]);
             boolean sneak = args.length > 5 && "sneak".equals(args[5]);

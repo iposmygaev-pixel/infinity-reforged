@@ -109,7 +109,19 @@ public class ChestTransformer implements IClassTransformer, Opcodes {
             "(Lnet/minecraft/world/IBlockAccess;III)V",
             "setBlockBoundsBasedOnState",
             owner) ? 1 : 0;
-        LOG.info("Patched BlockChest ({}/5 methods)", ok);
+        // Add onBlockPlaced (BlockChest inherits Block's) so placement knows the clicked face.
+        String placedDesc = "(Lnet/minecraft/world/World;IIIIFFFI)I";
+        if (find(node, "onBlockPlaced", "func_149660_a", placedDesc) == null) {
+            MethodNode placed = new MethodNode(
+                ACC_PUBLIC,
+                ChestsCorePlugin.deobfuscatedEnvironment ? "onBlockPlaced" : "func_149660_a",
+                placedDesc,
+                null,
+                null);
+            node.methods.add(placed);
+            ok += redirect(node, "onBlockPlaced", "func_149660_a", placedDesc, "onBlockPlaced", owner) ? 1 : 0;
+        }
+        LOG.info("Patched BlockChest ({}/6 methods)", ok);
         return write(node);
     }
 
