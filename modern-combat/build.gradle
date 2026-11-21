@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'com.infinityreforged'
-version = '0.2.0'
+version = '0.2.1'
 
 base {
     archivesName = 'ModernCombat-1.7.10'
@@ -30,4 +30,17 @@ processResources {
     filesMatching('mcmod.info') {
         expand 'version': project.version
     }
+}
+
+repositories {
+    maven {
+        name = 'GTNH Maven'
+        url = 'https://nexus.gtnewhorizons.com/repository/public/'
+        mavenContent { includeGroup('com.github.GTNewHorizons') }
+    }
+}
+
+dependencies {
+    // Optional: AppleCore's hunger API, used only when AppleCore is installed.
+    compileOnly('com.github.GTNewHorizons:AppleCore:3.4.0:api') { transitive = false }
 }

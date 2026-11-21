@@ -2,6 +2,7 @@ package com.infinityreforged.moderncombat;
 
 import java.lang.reflect.Field;
 
+import cpw.mods.fml.common.Loader;
 import cpw.mods.fml.relauncher.ReflectionHelper;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.nbt.NBTTagCompound;
@@ -38,7 +39,7 @@ public class ModernFoodStats extends FoodStats {
 
     /** Replaces a player's vanilla FoodStats, keeping its state. Other mods' replacements are left alone. */
     public static void install(EntityPlayer player) {
-        if (!available || !ModConfig.modernRegeneration) return;
+        if (!available || !ModConfig.modernRegeneration || Loader.isModLoaded("AppleCore")) return;
         FoodStats current = player.getFoodStats();
         if (current == null || current.getClass() != FoodStats.class) return;
         NBTTagCompound tag = new NBTTagCompound();
