@@ -17,6 +17,7 @@ evaluationDependsOnChildren()
 //   minecraftDir  folder with a modern vanilla Minecraft (versions/, assets/) for the sound pack
 //                 default: official launcher .minecraft, then <home>/curseforge/minecraft/Install
 //   texturePacks  false to skip downloading the Modernity texture packs
+//   shaders       false to skip installing the shader pack
 //   assetsVersion optional: which modern version to take sounds/sprites from (default: newest)
 // ---------------------------------------------------------------------------------------------
 def localProps = new Properties()
@@ -169,6 +170,58 @@ tasks.register('installTextures') {
     }
 }
 
+// Light shader pack: vanilla look with soft shadows and better lighting (OptiFine 1.7.10 compatible).
+def shaderPack = [
+    title : "Sildur's Enhanced Default (Fast)", prefix: "Sildur's Enhanced Default ",
+    file  : "Sildur's Enhanced Default v1.20 Fast.zip",
+    url   : 'https://cdn.modrinth.com/data/2jvH1Rcl/versions/YDBpsjn0/Sildur%27s%20Enhanced%20Default%20v1.20%20Fast.zip',
+    sha1  : '382808cf9a52f0300fe08f84c242b2987e8d1859',
+]
+def installShaders = setting('shaders', 'true') != 'false'
+
+tasks.register('installShaders') {
+    group = 'infinity reforged'
+    description = "Downloads a light shader pack and selects it in OptiFine (optionsshaders.txt)."
+    onlyIf { installShaders }
+    doLast {
+        def dir = new File(instanceDir, 'shaderpacks')
+        dir.mkdirs()
+        def target = new File(dir, shaderPack.file)
+        (dir.listFiles() ?: []).findAll { it.name.startsWith(shaderPack.prefix) && it.name != shaderPack.file }.each {
+            it.delete()
+            logger.lifecycle("  removed old ${it.name}")
+        }
+        if (target.isFile() && sha1Of(target) == shaderPack.sha1) {
+            logger.lifecycle("  ${shaderPack.title}: up to date")
+        } else {
+            logger.lifecycle("  downloading ${shaderPack.title}...")
+            def tmp = new File(dir, shaderPack.file + '.part')
+            tmp.withOutputStream { out -> new URL(shaderPack.url).withInputStream { out << it } }
+            if (sha1Of(tmp) != shaderPack.sha1) {
+                tmp.delete()
+                throw new GradleException("Checksum mismatch for ${shaderPack.file}; try again later.")
+            }
+            target.delete()
+            tmp.renameTo(target)
+            logger.lifecycle("  installed ${shaderPack.file}")
+        }
+
+        // Select it in OptiFine unless the player chose another shader pack.
+        def options = new File(instanceDir, 'optionsshaders.txt')
+        def lines = options.isFile() ? options.readLines('UTF-8') : []
+        def i = lines.findIndexOf { it.startsWith('shaderPack=') }
+        def current = i >= 0 ? lines[i].substring('shaderPack='.length()) : ''
+        if (current in ['', 'OFF', '(internal)'] || current.startsWith(shaderPack.prefix)) {
+            def line = "shaderPack=${shaderPack.file}"
+            if (i >= 0) lines[i] = line else lines << line
+            options.write(lines.join(System.lineSeparator()) + System.lineSeparator(), 'UTF-8')
+            logger.lifecycle('  selected in OptiFine')
+        } else {
+            logger.lifecycle("  OptiFine already uses '${current}', left as is")
+        }
+    }
+}
+
 tasks.register('installAssets') {
     group = 'infinity reforged'
     description = 'Builds the Modern Combat sound/sprite pack from your own modern Minecraft install (official launcher or CurseForge).'
@@ -263,6 +316,6 @@ tasks.register('installAssets') {
 
 tasks.register('install') {
     group = 'infinity reforged'
-    description = 'Builds and installs everything into the modpack: mods, texture packs and the sound pack. Close the game first.'
-    dependsOn 'installMods', 'installTextures', 'installAssets'
+    description = 'Builds and installs everything into the modpack: mods, texture packs, the sound pack and the shader pack. Close the game first.'
+    dependsOn 'installMods', 'installTextures', 'installAssets', 'installShaders'
 }

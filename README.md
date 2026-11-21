@@ -62,10 +62,13 @@
   (Tinkers, Botania, AE2, Thermal, IC2, EnderIO, BoP, Twilight Forest и др.);
 - соберёт пак со звуками ударов 1.9+ из **вашего** ванильного Minecraft 1.20.2+, установленного через
   CurseForge или официальный лаунчер;
+- скачает лёгкий шейдерпак [Sildur's Enhanced Default](https://modrinth.com/shader/sildurs-enhanced-default-shaders)
+  (Fast): ванильный вид, мягкие тени и улучшенное освещение — и выберет его в OptiFine, если у вас не выбран
+  другой шейдерпак. Выключить: *Options → Video Settings → Shaders → OFF*;
 - включит паки в `options.txt` в правильном порядке, не трогая ваши остальные паки.
 
 По умолчанию сборка ищется в `<домашняя папка>\curseforge\minecraft\Instances\FTB Infinity Evolved`.
-Другой путь, сервер, папку с ванильным Minecraft или отключение текстурпаков (`texturePacks=false`) можно указать
+Другой путь, сервер, папку с ванильным Minecraft, отключение текстурпаков (`texturePacks=false`) или шейдеров (`shaders=false`) можно указать
 в `local.properties` (образец: [`local.properties.example`](local.properties.example)).
 
 Моды нужны **и на клиенте, и на сервере**: для сервера укажите `serverDir`.
