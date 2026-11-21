@@ -60,7 +60,7 @@
   [Modernity](https://modrinth.com/resourcepack/modernity) — ванильные текстуры, включая весь Нижний мир, и
   [Modernity Adjunct](https://modrinth.com/resourcepack/modernity-adjunct) — текстуры модов
   (Tinkers, Botania, AE2, Thermal, IC2, EnderIO, BoP, Twilight Forest и др.);
-- соберёт пак со звуками ударов 1.9+ из **вашего** ванильного Minecraft 1.20.2+, установленного через
+- соберёт пак с оригинальными спрайтами индикатора атаки и взмаха из **вашего** ванильного Minecraft 1.20.2+, установленного через
   CurseForge или официальный лаунчер;
 - включит паки в `options.txt` в правильном порядке, не трогая ваши остальные паки.
 

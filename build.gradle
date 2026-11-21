@@ -14,10 +14,10 @@ evaluationDependsOnChildren()
 //   instanceDir   modpack instance (folder that contains "mods")
 //                 default: <home>/curseforge/minecraft/Instances/FTB Infinity Evolved
 //   serverDir     optional: a server folder to install the mods into as well
-//   minecraftDir  folder with a modern vanilla Minecraft (versions/, assets/) for the sound pack
+//   minecraftDir  folder with a modern vanilla Minecraft (versions/, assets/) for the combat sprites pack
 //                 default: official launcher .minecraft, then <home>/curseforge/minecraft/Install
 //   texturePacks  false to skip downloading the Modernity texture packs
-//   assetsVersion optional: which modern version to take sounds/sprites from (default: newest)
+//   assetsVersion optional: which modern version to take combat sprites from (default: newest)
 // ---------------------------------------------------------------------------------------------
 def localProps = new Properties()
 def localFile = file('local.properties')
@@ -171,7 +171,7 @@ tasks.register('installTextures') {
 
 tasks.register('installAssets') {
     group = 'infinity reforged'
-    description = 'Builds the Modern Combat sound/sprite pack from your own modern Minecraft install (official launcher or CurseForge).'
+    description = 'Builds the Modern Combat sprite pack (attack indicator, sweep) from your own modern Minecraft install (official launcher or CurseForge).'
     mustRunAfter 'installTextures'
     doLast {
         // Where a modern vanilla Minecraft may be installed: the setting, or the official launcher and CurseForge.
@@ -191,7 +191,7 @@ tasks.register('installAssets') {
         }
         def pick = found.max { a, b -> compareVersions(versionKey(a.version), versionKey(b.version)) }
         if (!pick) {
-            logger.warn("Skipping sound pack: no Minecraft 1.20.2+ found in ${roots.join(' or ')}. " +
+            logger.warn("Skipping combat sprites pack: no Minecraft 1.20.2+ found in ${roots.join(' or ')}. " +
                 'Launch vanilla 1.21 once (official launcher or CurseForge), or set minecraftDir in local.properties.')
             syncPackOrder()
             return
@@ -199,24 +199,12 @@ tasks.register('installAssets') {
         File mcDir = pick.root
         String version = pick.version
         def versionsDir = new File(mcDir, 'versions')
-        logger.lifecycle("Sound pack from Minecraft ${version} (${mcDir})")
-
-        def slurper = new JsonSlurper()
-        def versionJson = slurper.parse(new File(versionsDir, "${version}/${version}.json"))
-        def indexFile = new File(mcDir, "assets/indexes/${versionJson.assetIndex.id}.json")
-        if (!indexFile.isFile()) {
-            logger.warn("Skipping sound pack: ${indexFile} is missing. Launch Minecraft ${version} once.")
-            syncPackOrder()
-            return
-        }
-        def index = slurper.parse(indexFile)
+        logger.lifecycle("Combat sprites from Minecraft ${version} (${mcDir})")
 
         def packs = new File(instanceDir, 'resourcepacks')
         packs.mkdirs()
         def zipFile = new File(packs, combatPackName)
 
-        def soundPrefix = 'minecraft/sounds/entity/player/attack/'
-        def sounds = [:].withDefault { [] }
         int textures = 0
         zipFile.withOutputStream { stream ->
             def zip = new ZipOutputStream(stream)
@@ -226,20 +214,8 @@ tasks.register('installAssets') {
                 zip.closeEntry()
             }
             put('pack.mcmeta', JsonOutput.prettyPrint(JsonOutput.toJson(
-                [pack: [pack_format: 1, description: "Modern Combat: sounds and sprites from Minecraft ${version}"]]))
+                [pack: [pack_format: 1, description: "Modern Combat: attack indicator and sweep sprites from Minecraft ${version}"]]))
                 .getBytes('UTF-8'))
-
-            index.objects.each { String key, info ->
-                if (!key.startsWith(soundPrefix) || !key.endsWith('.ogg')) return
-                def name = key.substring(soundPrefix.length())
-                def event = name.replaceAll(/\d*\.ogg$/, '')
-                def object = new File(mcDir, "assets/objects/${info.hash.substring(0, 2)}/${info.hash}")
-                if (!object.isFile()) return
-                put("assets/moderncombat/sounds/attack/${name}", object.bytes)
-                sounds[event] << "attack/${name - '.ogg'}"
-            }
-            def soundsJson = sounds.collectEntries { event, files -> ["attack.${event}", [category: 'player', sounds: files.sort()]] }
-            put('assets/moderncombat/sounds.json', JsonOutput.prettyPrint(JsonOutput.toJson(soundsJson)).getBytes('UTF-8'))
 
             def sprites = ['crosshair_attack_indicator_background', 'crosshair_attack_indicator_progress',
                            'crosshair_attack_indicator_full', 'hotbar_attack_indicator_background',
@@ -256,13 +232,13 @@ tasks.register('installAssets') {
             }
             zip.finish()
         }
-        logger.lifecycle("  ${combatPackName}: ${sounds.size()} sound events, ${textures} textures")
+        logger.lifecycle("  ${combatPackName}: ${textures} textures")
         syncPackOrder()
     }
 }
 
 tasks.register('install') {
     group = 'infinity reforged'
-    description = 'Builds and installs everything into the modpack: mods, texture packs and the sound pack. Close the game first.'
+    description = 'Builds and installs everything into the modpack: mods, texture packs and the combat sprites pack. Close the game first.'
     dependsOn 'installMods', 'installTextures', 'installAssets'
 }

@@ -7,7 +7,7 @@
 # Also install the mods into a server.
 #serverDir=D:/Servers/infinity
 
-# Folder with a modern vanilla Minecraft (contains versions/ and assets/), used for the combat sound pack.
+# Folder with a modern vanilla Minecraft (contains versions/ and assets/), used for the combat sprites pack.
 # Default: %APPDATA%/.minecraft, then <home>/curseforge/minecraft/Install
 #minecraftDir=C:/Users/you/curseforge/minecraft/Install
 #assetsVersion=1.21.1
