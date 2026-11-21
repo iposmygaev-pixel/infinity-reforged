@@ -22,7 +22,7 @@ public class ModernFont {
 
     public static final String MODID = "modernfont";
     public static final String NAME = "Modern Font";
-    public static final String VERSION = "0.1.0";
+    public static final String VERSION = "0.1.1";
 
     public static final Logger LOG = LogManager.getLogger(NAME);
 

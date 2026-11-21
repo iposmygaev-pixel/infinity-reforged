@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'com.infinityreforged'
-version = '0.1.0'
+version = '0.1.1'
 
 base {
     archivesName = 'ModernFont-1.7.10'
