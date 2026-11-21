@@ -4,7 +4,9 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 import com.infinityreforged.moderncombat.CommonProxy;
 import com.infinityreforged.moderncombat.CombatData;
+import com.infinityreforged.moderncombat.ModConfig;
 import com.infinityreforged.moderncombat.ModernCombat;
+import com.infinityreforged.moderncombat.network.PacketOffhandSync;
 import com.infinityreforged.moderncombat.network.PacketShieldCooldown;
 import com.infinityreforged.moderncombat.network.PacketSound;
 import com.infinityreforged.moderncombat.network.PacketSweep;
@@ -12,6 +14,8 @@ import com.infinityreforged.moderncombat.network.PacketSweep;
 import cpw.mods.fml.common.FMLCommonHandler;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.audio.PositionedSoundRecord;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.client.MinecraftForgeClient;
 import net.minecraftforge.common.MinecraftForge;
@@ -29,6 +33,31 @@ public class ClientProxy extends CommonProxy {
         FMLCommonHandler.instance()
             .bus()
             .register(events);
+        if (ModConfig.offhand) {
+            OffhandInput input = new OffhandInput();
+            FMLCommonHandler.instance()
+                .bus()
+                .register(input);
+            MinecraftForge.EVENT_BUS.register(new OffhandRender());
+        }
+    }
+
+    @Override
+    public void handleOffhandSync(final PacketOffhandSync message) {
+        TASKS.add(new Runnable() {
+
+            @Override
+            public void run() {
+                Minecraft mc = Minecraft.getMinecraft();
+                if (mc.theWorld == null) return;
+                Entity entity = mc.theWorld.getEntityByID(message.entityId);
+                // Our own off hand comes from the inventory container and local input.
+                if (!(entity instanceof EntityPlayer) || entity == mc.thePlayer) return;
+                CombatData data = CombatData.get((EntityPlayer) entity);
+                data.offhand = message.stack;
+                data.offhandBlocking = message.blocking;
+            }
+        });
     }
 
     @Override

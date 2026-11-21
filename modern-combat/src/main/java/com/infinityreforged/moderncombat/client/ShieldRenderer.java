@@ -3,6 +3,7 @@ package com.infinityreforged.moderncombat.client;
 import org.lwjgl.opengl.GL11;
 
 import com.infinityreforged.moderncombat.ModernCombat;
+import com.infinityreforged.moderncombat.offhand.Offhand;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.player.EntityPlayer;
@@ -37,6 +38,7 @@ public class ShieldRenderer implements IItemRenderer {
     private static boolean blocking(Object entity, ItemStack stack) {
         if (!(entity instanceof EntityPlayer)) return false;
         EntityPlayer player = (EntityPlayer) entity;
+        if (OffhandRender.renderingOffhand) return OffhandRender.isOffhandStack(player, stack) && Offhand.isRaised(player);
         return player.isUsingItem() && player.getItemInUse() == stack;
     }
 
@@ -52,6 +54,10 @@ public class ShieldRenderer implements IItemRenderer {
                 if (blocking(holder, item)) {
                     // Raised shield: placed directly in camera space (x right, y up, -z forward).
                     GL11.glLoadIdentity();
+                    if (OffhandRender.renderingOffhand) {
+                        // Raised in the left hand: mirror the camera-space pose.
+                        GL11.glScalef(-1.0F, 1.0F, 1.0F);
+                    }
                     ShieldPose.apply("fpBlock");
                 } else {
                     ShieldPose.apply("fpIdle");

@@ -114,16 +114,22 @@ def sweep():
 
 def shield():
     # Model texture, same box layout as modern Minecraft (64x64): plate 12x22x1 at (0,0), handle 2x6x6 at (26,0).
+    # Original pixel art in the style of the modern plain shield: vertical oak planks in an iron frame.
     img = blank(64, 64)
-    wood = [(143, 104, 62, 255), (126, 91, 54, 255), (158, 117, 71, 255)]
-    dark = (88, 62, 35, 255)
-    iron = (170, 170, 176, 255)
-    iron_dark = (118, 118, 124, 255)
+    wood = [(162, 123, 76, 255), (150, 112, 68, 255), (172, 132, 83, 255), (141, 105, 63, 255)]
+    seam = (99, 72, 42, 255)
+    grain = (128, 94, 56, 255)
+    iron = (186, 186, 190, 255)
+    iron_mid = (148, 148, 154, 255)
+    iron_dark = (96, 96, 102, 255)
 
     def plank(x, y):
-        col = wood[(x // 3) % 3]
-        if x % 3 == 0 or (y * 7 + x * 3) % 23 == 0:
-            return dark
+        # Planks 3 px wide with a dark seam, a few grain marks.
+        if x % 3 == 2:
+            return seam
+        col = wood[(x // 3) % 4]
+        if (y * 5 + (x // 3) * 7) % 11 == 0 and x % 3 == 0:
+            return grain
         return col
 
     def fill(x0, y0, w, h, fn):
@@ -131,35 +137,39 @@ def shield():
             for x in range(x0, x0 + w):
                 img[y][x] = fn(x - x0, y - y0)
 
-    # Plate faces: front (1,1) 12x22 with an iron rim and boss, back (14,1) plain planks, edges in iron.
-    def front(x, y):
-        if x == 0 or x == 11 or y == 0 or y == 21:
-            return iron_dark if (x + y) % 2 else iron
-        if 4 <= x <= 7 and 9 <= y <= 12:
-            return iron if (x in (5, 6) and y in (10, 11)) else iron_dark
-        return plank(x, y)
-    fill(1, 1, 12, 22, front)
-    fill(14, 1, 12, 22, lambda x, y: plank(x + 1, y + 3))
-    fill(1, 0, 12, 1, lambda x, y: iron)
+    def framed(x, y, w, h, inner):
+        # 1 px iron frame: light on top/left, dark on bottom/right, rivets at the corners.
+        if (x, y) in ((1, 1), (w - 2, 1), (1, h - 2), (w - 2, h - 2)):
+            return iron_dark
+        if y == 0 or x == 0:
+            return iron
+        if y == h - 1 or x == w - 1:
+            return iron_dark
+        return inner(x, y)
+
+    # Plate faces: front (1,1), back (14,1); top/bottom edges (1,0)/(13,0); left/right edges (0,1)/(13,1).
+    fill(1, 1, 12, 22, lambda x, y: framed(x, y, 12, 22, plank))
+    fill(14, 1, 12, 22, lambda x, y: framed(x, y, 12, 22, lambda a, b: plank(11 - a, b)))
+    fill(1, 0, 12, 1, lambda x, y: iron_mid)
     fill(13, 0, 12, 1, lambda x, y: iron_dark)
-    fill(0, 1, 1, 22, lambda x, y: iron_dark)
-    fill(13, 1, 1, 22, lambda x, y: iron)
-    # Handle: dark wood all around.
-    fill(26, 0, 16, 12, lambda x, y: dark if (x + y) % 4 else (104, 74, 42, 255))
+    fill(0, 1, 1, 22, lambda x, y: iron_mid)
+    fill(13, 1, 1, 22, lambda x, y: iron_mid)
+    # Handle: plain dark oak.
+    fill(26, 0, 16, 12, lambda x, y: (112, 80, 46, 255) if (x + 2 * y) % 5 else (96, 68, 39, 255))
     write_png(os.path.join(ROOT, "entity", "shield.png"), 64, 64, img)
 
-    # Inventory icon: the front of the shield.
+    # Flat icon (only used where the 3D model can't be drawn): the front of the shield.
     icon = blank(16, 16)
     for y in range(1, 15):
         inset = 0 if y < 11 else (y - 10)
-        for x in range(3 + inset, 13 - inset):
-            edge = x in (3 + inset, 12 - inset) or y in (1, 14 - 0) or (y >= 11 and (x == 3 + inset or x == 12 - inset))
-            if y == 1 or edge:
-                icon[y][x] = iron if (x + y) % 2 else iron_dark
-            elif 6 <= x <= 9 and 6 <= y <= 9:
-                icon[y][x] = iron if x in (7, 8) and y in (7, 8) else iron_dark
+        x0, x1 = 3 + inset, 12 - inset
+        for x in range(x0, x1 + 1):
+            if y == 1 or x == x0:
+                icon[y][x] = iron
+            elif y == 14 or x == x1:
+                icon[y][x] = iron_dark
             else:
-                icon[y][x] = plank(x, y)
+                icon[y][x] = plank(x - 4, y)
     write_png(os.path.join(ROOT, "items", "shield.png"), 16, 16, icon)
 
 

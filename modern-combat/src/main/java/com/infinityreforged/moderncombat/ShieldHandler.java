@@ -3,6 +3,7 @@ package com.infinityreforged.moderncombat;
 import java.util.Set;
 
 import com.infinityreforged.moderncombat.network.PacketShieldCooldown;
+import com.infinityreforged.moderncombat.offhand.Offhand;
 import com.infinityreforged.moderncombat.network.PacketSound;
 
 import cpw.mods.fml.common.eventhandler.EventPriority;
@@ -32,9 +33,17 @@ public class ShieldHandler {
     /** 1.9 {@code isActiveItemStackBlocking}: the shield protects after being raised for 5 ticks. */
     public static boolean isBlocking(EntityPlayer player) {
         ItemStack using = player.getItemInUse();
-        return player.isUsingItem() && using != null
+        if (player.isUsingItem() && using != null
             && using.getItem() instanceof ItemShield
-            && player.getItemInUseDuration() >= 5;
+            && player.getItemInUseDuration() >= 5) return true;
+        return Offhand.isRaised(player) && player.ticksExisted - CombatData.get(player).offhandBlockStart >= 5;
+    }
+
+    /** The shield that is blocking: the one in use in the main hand, or the raised off-hand one. */
+    private static ItemStack activeShield(EntityPlayer player) {
+        ItemStack using = player.getItemInUse();
+        if (player.isUsingItem() && using != null && using.getItem() instanceof ItemShield) return using;
+        return Offhand.isRaised(player) ? CombatData.get(player).offhand : null;
     }
 
     /** 1.9 {@code canBlockDamageSource}: unblockable sources pass; the source must be in front of the player. */
@@ -68,10 +77,16 @@ public class ShieldHandler {
 
     /** 1.9 {@code damageShield}: hits of 3+ cost 1 + floor(damage) durability. */
     private static void damageShield(EntityPlayer player, float damage) {
-        ItemStack shield = player.getItemInUse();
+        ItemStack shield = activeShield(player);
         if (damage < 3.0F || shield == null) return;
         shield.damageItem(1 + MathHelper.floor_float(damage), player);
         if (shield.stackSize <= 0) {
+            CombatData data = CombatData.get(player);
+            if (data.offhand == shield) {
+                data.offhand = null;
+                data.offhandBlocking = false;
+                return;
+            }
             player.clearItemInUse();
             if (player.getCurrentEquippedItem() == shield) {
                 player.destroyCurrentEquippedItem();
@@ -104,6 +119,7 @@ public class ShieldHandler {
     private static void disableShield(EntityPlayer player) {
         player.clearItemInUse();
         CombatData.get(player).shieldCooldown = AXE_COOLDOWN;
+        CombatData.get(player).offhandBlocking = false;
         player.worldObj
             .playSoundAtEntity(player, "random.break", 0.8F, 0.8F + player.worldObj.rand.nextFloat() * 0.4F);
         if (player instanceof EntityPlayerMP) {
