@@ -171,85 +171,104 @@ tasks.register('installTextures') {
     }
 }
 
-// Light shader pack: vanilla look with soft shadows and better lighting (OptiFine 1.7.10 compatible).
-def shaderPack = [
-    title : "Sildur's Enhanced Default (Fast)", prefix: "Sildur's Enhanced Default ",
-    file  : "Sildur's Enhanced Default v1.20 Fast.zip",
-    url   : 'https://cdn.modrinth.com/data/2jvH1Rcl/versions/YDBpsjn0/Sildur%27s%20Enhanced%20Default%20v1.20%20Fast.zip',
-    sha1  : '382808cf9a52f0300fe08f84c242b2987e8d1859',
+// Shader packs (OptiFine 1.7.10 compatible). All are installed; `selected` is chosen in OptiFine.
+// `options` are default Shader Options written to shaderpacks/<file>.txt.
+def shaderPacks = [
+    [id    : 'bsl-classic', title: 'BSL Shaders Classic', prefix: 'BSLClassic_',
+     file  : 'BSLClassic_v8.4.01.1.zip',
+     url   : 'https://cdn.modrinth.com/data/pgzM6RBY/versions/r8BBQaQl/BSLClassic_v8.4.01.1.zip',
+     sha1  : 'b46e254fb8fd21b2b2ac144672fb030e2cdae694',
+     // Soft (filtered) shadow edges and TAA hide the shadow map stepping that makes shadows shimmer when moving.
+     options: [SHADOW_FILTER: 'true', TAA: 'true']],
+    [id    : 'sildur-enhanced-default', title: "Sildur's Enhanced Default (Fast)", prefix: "Sildur's Enhanced Default ",
+     file  : "Sildur's Enhanced Default v1.20 Fast.zip",
+     url   : 'https://cdn.modrinth.com/data/2jvH1Rcl/versions/YDBpsjn0/Sildur%27s%20Enhanced%20Default%20v1.20%20Fast.zip',
+     sha1  : '382808cf9a52f0300fe08f84c242b2987e8d1859',
+     // Finer shadow map and TAA; shadows may still shimmer when falling or moving fast (see README).
+     options: [shadowMapResolution: '4096', shadowDistance: '60.0', TAA: 'true']],
 ]
+def selectedShader = 'bsl-classic'
 def installShaders = setting('shaders', 'true') != 'false'
 
 tasks.register('installShaders') {
     group = 'infinity reforged'
-    description = "Downloads a light shader pack and selects it in OptiFine (optionsshaders.txt)."
+    description = "Downloads the shader packs and selects one in OptiFine (optionsshaders.txt)."
     onlyIf { installShaders }
     doLast {
         def dir = new File(instanceDir, 'shaderpacks')
         dir.mkdirs()
-        def target = new File(dir, shaderPack.file)
-        (dir.listFiles() ?: []).findAll { it.name.startsWith(shaderPack.prefix) && it.name.endsWith('.zip') && it.name != shaderPack.file }.each {
-            it.delete()
-            logger.lifecycle("  removed old ${it.name}")
-        }
-        if (target.isFile() && sha1Of(target) == shaderPack.sha1) {
-            logger.lifecycle("  ${shaderPack.title}: up to date")
-        } else {
-            logger.lifecycle("  downloading ${shaderPack.title}...")
-            def tmp = new File(dir, shaderPack.file + '.part')
-            tmp.withOutputStream { out -> new URL(shaderPack.url).withInputStream { out << it } }
-            if (sha1Of(tmp) != shaderPack.sha1) {
-                tmp.delete()
-                throw new GradleException("Checksum mismatch for ${shaderPack.file}; try again later.")
-            }
-            target.delete()
-            tmp.renameTo(target)
-            logger.lifecycle("  installed ${shaderPack.file}")
-        }
 
-        // Default shader options:
-        //  - finer shadow map (Fast profile: 1024 px over 90 blocks ~ 0.18 block per texel);
-        //  - TAA: the shadow map follows the player in 2-block steps, so shadows shimmer while falling;
-        //    temporal anti-aliasing blends frames and hides it (the pack's Fancy profile uses it too).
-        // A value is (re)written only if it is missing or still equals what the installer wrote last time,
-        // so anything the player changed in Shader Options is kept. Remembered in shaderpacks/.infinity-reforged.json.
-        def defaults = [shadowMapResolution: '4096', shadowDistance: '60.0', TAA: 'true']
-        def shaderOptions = new File(dir, shaderPack.file + '.txt')
+        // What the installer wrote last time, to tell its own values apart from the player's.
         def stateFile = new File(dir, '.infinity-reforged.json')
         def state = stateFile.isFile() ? (new JsonSlurper().parse(stateFile) as Map) : [:]
-        if (!state && shaderOptions.isFile()) {
-            // Values written by the previous installer version, before this state file existed.
-            state = [shadowMapResolution: '2048', shadowDistance: '60.0']
+        if (!state.containsKey('options')) {
+            // Migrate from older installer versions (flat Sildur's options, Sildur's selected).
+            def sildur = shaderPacks.find { it.id == 'sildur-enhanced-default' }
+            def old = state ?: (new File(dir, sildur.file + '.txt').isFile() ? [shadowMapResolution: '2048', shadowDistance: '60.0'] : [:])
+            state = [selected: sildur.file, options: [(sildur.file): old]]
         }
-        def optLines = shaderOptions.isFile() ? shaderOptions.readLines('UTF-8') : []
-        def optCurrent = optLines.findAll { it.contains('=') }.collectEntries { l -> def i = l.indexOf('='); [l.substring(0, i), l.substring(i + 1)] }
-        def written = [:]
-        defaults.each { key, value ->
-            def have = optCurrent[key]
-            if (have == null || (have == state[key] && have != value)) {
-                if (have == null) optLines << "${key}=${value}" else optLines[optLines.findIndexOf { it.startsWith("${key}=") }] = "${key}=${value}"
-                written[key] = value
-            }
-        }
-        if (written) {
-            shaderOptions.write(optLines.join(System.lineSeparator()) + System.lineSeparator(), 'UTF-8')
-            logger.lifecycle("  shader options: ${written.collect { k, v -> "${k}=${v}" }.join(', ')}")
-        }
-        stateFile.write(JsonOutput.toJson(defaults), 'UTF-8')
+        def newState = [selected: state.selected, options: [:]]
 
-        // Select it in OptiFine unless the player chose another shader pack.
+        shaderPacks.each { pack ->
+            def target = new File(dir, pack.file)
+            (dir.listFiles() ?: []).findAll { it.name.startsWith(pack.prefix) && it.name.endsWith('.zip') && it.name != pack.file }.each {
+                it.delete()
+                logger.lifecycle("  removed old ${it.name}")
+            }
+            if (target.isFile() && sha1Of(target) == pack.sha1) {
+                logger.lifecycle("  ${pack.title}: up to date")
+            } else {
+                logger.lifecycle("  downloading ${pack.title}...")
+                def tmp = new File(dir, pack.file + '.part')
+                tmp.withOutputStream { out -> new URL(pack.url).withInputStream { out << it } }
+                if (sha1Of(tmp) != pack.sha1) {
+                    tmp.delete()
+                    throw new GradleException("Checksum mismatch for ${pack.file}; try again later.")
+                }
+                target.delete()
+                tmp.renameTo(target)
+                logger.lifecycle("  installed ${pack.file}")
+            }
+
+            // Write default options that are missing or still hold the installer's previous value.
+            def previous = (state.options[pack.file] ?: [:]) as Map
+            def optFile = new File(dir, pack.file + '.txt')
+            def optLines = optFile.isFile() ? optFile.readLines('UTF-8') : []
+            def optCurrent = optLines.findAll { it.contains('=') }.collectEntries { l -> def k = l.indexOf('='); [l.substring(0, k), l.substring(k + 1)] }
+            def written = [:]
+            pack.options.each { key, value ->
+                def have = optCurrent[key]
+                if (have == null || (have == previous[key] && have != value)) {
+                    if (have == null) optLines << "${key}=${value}" else optLines[optLines.findIndexOf { it.startsWith("${key}=") }] = "${key}=${value}"
+                    written[key] = value
+                }
+            }
+            if (written) {
+                optFile.write(optLines.join(System.lineSeparator()) + System.lineSeparator(), 'UTF-8')
+                logger.lifecycle("    options: ${written.collect { k, v -> "${k}=${v}" }.join(', ')}")
+            }
+            newState.options[pack.file] = pack.options
+        }
+
+        // Select the preferred pack unless the player picked something else than what the installer chose before.
+        def preferred = shaderPacks.find { it.id == selectedShader }.file
         def options = new File(instanceDir, 'optionsshaders.txt')
         def lines = options.isFile() ? options.readLines('UTF-8') : []
         def i = lines.findIndexOf { it.startsWith('shaderPack=') }
         def current = i >= 0 ? lines[i].substring('shaderPack='.length()) : ''
-        if (current in ['', 'OFF', '(internal)'] || current.startsWith(shaderPack.prefix)) {
-            def line = "shaderPack=${shaderPack.file}"
+        if (current == preferred) {
+            logger.lifecycle("  OptiFine uses ${preferred}")
+            newState.selected = preferred
+        } else if (current in ['', 'OFF', '(internal)'] || current == state.selected) {
+            def line = "shaderPack=${preferred}"
             if (i >= 0) lines[i] = line else lines << line
             options.write(lines.join(System.lineSeparator()) + System.lineSeparator(), 'UTF-8')
-            logger.lifecycle('  selected in OptiFine')
+            logger.lifecycle("  selected in OptiFine: ${preferred}")
+            newState.selected = preferred
         } else {
-            logger.lifecycle("  OptiFine already uses '${current}', left as is")
+            logger.lifecycle("  OptiFine uses '${current}' (your choice), left as is")
         }
+        stateFile.write(JsonOutput.toJson(newState), 'UTF-8')
     }
 }
 
