@@ -8,32 +8,18 @@ import net.minecraft.world.World;
 import net.minecraftforge.common.IExtendedEntityProperties;
 
 /**
- * Per-player combat state: attack cooldown (the 1.9 {@code ticksSinceLastSwing} field) and the off hand.
+ * Per-player attack cooldown state (the 1.9 {@code ticksSinceLastSwing} field).
  */
 public class CombatData implements IExtendedEntityProperties {
 
     public static final String KEY = "ModernCombat";
 
     public int ticksSinceLastSwing;
-    /** Ticks left before the shield can be raised again (after an axe hit). */
-    public int shieldCooldown;
+    /** Item from the off-hand slot of version 0.4.0, returned to the inventory on join. */
+    public ItemStack legacyOffhand;
     public ItemStack lastHeld;
     /** Set from the network thread when the client reports a swing; consumed on the next player tick. */
     public volatile boolean swingPending;
-
-    /** The off-hand stack (1.9+ second hand). Saved with the player. */
-    public ItemStack offhand;
-    /** The shield in the off hand is raised (set by the client's use key, validated on the server). */
-    public boolean offhandBlocking;
-    /** {@code ticksExisted} when the off-hand shield was raised. */
-    public int offhandBlockStart;
-    /** Server: last off-hand state sent to watching clients. */
-    public ItemStack syncedOffhand;
-    public boolean syncedBlocking;
-    /** Set from the network thread: the client pressed "swap hands"; handled on the next player tick. */
-    public volatile boolean swapPending;
-    /** Set from the network thread: 1 = client raised the off-hand shield, 0 = lowered, -1 = nothing new. */
-    public volatile int blockRequest = -1;
 
     public static CombatData get(EntityPlayer player) {
         IExtendedEntityProperties props = player.getExtendedProperties(KEY);
@@ -60,18 +46,13 @@ public class CombatData implements IExtendedEntityProperties {
     }
 
     @Override
-    public void saveNBTData(NBTTagCompound compound) {
-        if (offhand != null) {
-            NBTTagCompound tag = new NBTTagCompound();
-            offhand.writeToNBT(tag);
-            compound.setTag(KEY + "Offhand", tag);
-        }
-    }
+    public void saveNBTData(NBTTagCompound compound) {}
 
     @Override
     public void loadNBTData(NBTTagCompound compound) {
-        offhand = compound.hasKey(KEY + "Offhand") ? ItemStack.loadItemStackFromNBT(compound.getCompoundTag(KEY + "Offhand"))
-            : null;
+        if (compound.hasKey(KEY + "Offhand")) {
+            legacyOffhand = ItemStack.loadItemStackFromNBT(compound.getCompoundTag(KEY + "Offhand"));
+        }
     }
 
     @Override

@@ -112,69 +112,7 @@ def sweep():
         write_png(os.path.join(out, "sweep_%d.png" % frame), size, size, img)
 
 
-def shield():
-    # Model texture, same box layout as modern Minecraft (64x64): plate 12x22x1 at (0,0), handle 2x6x6 at (26,0).
-    # Original pixel art in the style of the modern plain shield: vertical oak planks in an iron frame.
-    img = blank(64, 64)
-    wood = [(162, 123, 76, 255), (150, 112, 68, 255), (172, 132, 83, 255), (141, 105, 63, 255)]
-    seam = (99, 72, 42, 255)
-    grain = (128, 94, 56, 255)
-    iron = (186, 186, 190, 255)
-    iron_mid = (148, 148, 154, 255)
-    iron_dark = (96, 96, 102, 255)
-
-    def plank(x, y):
-        # Planks 3 px wide with a dark seam, a few grain marks.
-        if x % 3 == 2:
-            return seam
-        col = wood[(x // 3) % 4]
-        if (y * 5 + (x // 3) * 7) % 11 == 0 and x % 3 == 0:
-            return grain
-        return col
-
-    def fill(x0, y0, w, h, fn):
-        for y in range(y0, y0 + h):
-            for x in range(x0, x0 + w):
-                img[y][x] = fn(x - x0, y - y0)
-
-    def framed(x, y, w, h, inner):
-        # 1 px iron frame: light on top/left, dark on bottom/right, rivets at the corners.
-        if (x, y) in ((1, 1), (w - 2, 1), (1, h - 2), (w - 2, h - 2)):
-            return iron_dark
-        if y == 0 or x == 0:
-            return iron
-        if y == h - 1 or x == w - 1:
-            return iron_dark
-        return inner(x, y)
-
-    # Plate faces: front (1,1), back (14,1); top/bottom edges (1,0)/(13,0); left/right edges (0,1)/(13,1).
-    fill(1, 1, 12, 22, lambda x, y: framed(x, y, 12, 22, plank))
-    fill(14, 1, 12, 22, lambda x, y: framed(x, y, 12, 22, lambda a, b: plank(11 - a, b)))
-    fill(1, 0, 12, 1, lambda x, y: iron_mid)
-    fill(13, 0, 12, 1, lambda x, y: iron_dark)
-    fill(0, 1, 1, 22, lambda x, y: iron_mid)
-    fill(13, 1, 1, 22, lambda x, y: iron_mid)
-    # Handle: plain dark oak.
-    fill(26, 0, 16, 12, lambda x, y: (112, 80, 46, 255) if (x + 2 * y) % 5 else (96, 68, 39, 255))
-    write_png(os.path.join(ROOT, "entity", "shield.png"), 64, 64, img)
-
-    # Flat icon (only used where the 3D model can't be drawn): the front of the shield.
-    icon = blank(16, 16)
-    for y in range(1, 15):
-        inset = 0 if y < 11 else (y - 10)
-        x0, x1 = 3 + inset, 12 - inset
-        for x in range(x0, x1 + 1):
-            if y == 1 or x == x0:
-                icon[y][x] = iron
-            elif y == 14 or x == x1:
-                icon[y][x] = iron_dark
-            else:
-                icon[y][x] = plank(x - 4, y)
-    write_png(os.path.join(ROOT, "items", "shield.png"), 16, 16, icon)
-
-
 if __name__ == "__main__":
     hud()
     sweep()
-    shield()
     print("Textures written to", os.path.normpath(ROOT))

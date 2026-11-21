@@ -38,11 +38,6 @@ public class CombatEvents {
             data.resetCooldown();
         }
         ++data.ticksSinceLastSwing;
-        if (data.shieldCooldown > 0) {
-            data.shieldCooldown--;
-            ItemStack using = player.getItemInUse();
-            if (using != null && using.getItem() instanceof ItemShield) player.clearItemInUse();
-        }
 
         ItemStack held = player.getCurrentEquippedItem();
         if (!CombatMath.sameItemIgnoreDurability(data.lastHeld, held)) {
@@ -80,7 +75,16 @@ public class CombatEvents {
     @SubscribeEvent
     public void onJoinWorld(EntityJoinWorldEvent event) {
         if (!event.world.isRemote && event.entity instanceof EntityPlayer && !(event.entity instanceof FakePlayer)) {
-            ModernFoodStats.install((EntityPlayer) event.entity);
+            EntityPlayer player = (EntityPlayer) event.entity;
+            ModernFoodStats.install(player);
+            // Version 0.4.0 had an off-hand slot: give its item back.
+            CombatData data = CombatData.get(player);
+            if (data.legacyOffhand != null) {
+                if (!player.inventory.addItemStackToInventory(data.legacyOffhand)) {
+                    player.dropPlayerItemWithRandomChoice(data.legacyOffhand, false);
+                }
+                data.legacyOffhand = null;
+            }
         }
     }
 

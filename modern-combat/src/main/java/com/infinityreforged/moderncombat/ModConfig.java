@@ -20,7 +20,6 @@ public final class ModConfig {
     public static boolean scaleSelfHandledAttacks = true;
     public static boolean modernArmor = true;
     public static boolean modernRegeneration = true;
-    public static boolean offhand = true;
 
     // weapons
     public static boolean modernVanillaDamage = true;
@@ -72,12 +71,6 @@ public final class ModConfig {
             CAT_GENERAL,
             true,
             "Attacking costs 0.1 exhaustion (modern) instead of 0.3.");
-        offhand = cfg.getBoolean(
-            "offhand",
-            CAT_GENERAL,
-            true,
-            "Second hand as in 1.9+: an extra inventory slot, F swaps it with the held item, a shield in it can be raised."
-                + " Must match on client and server.");
         disableSwordBlocking = cfg.getBoolean(
             "disableSwordBlocking",
             CAT_GENERAL,

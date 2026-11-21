@@ -350,7 +350,7 @@ tasks.register('installAssets') {
                 .getBytes('UTF-8'))
 
             // modern sound folder -> [our sound folder / event prefix]
-            def soundSources = [(soundPrefix): 'attack', 'minecraft/sounds/item/shield/': 'shield']
+            def soundSources = [(soundPrefix): 'attack']
             index.objects.each { String key, info ->
                 def prefix = soundSources.keySet().find { key.startsWith(it) }
                 if (!prefix || !key.endsWith('.ogg')) return
@@ -369,22 +369,11 @@ tasks.register('installAssets') {
                            'crosshair_attack_indicator_full', 'hotbar_attack_indicator_background',
                            'hotbar_attack_indicator_progress'].collect { "textures/gui/sprites/hud/${it}.png" }
             sprites += (0..7).collect { "textures/particle/sweep_${it}.png" }
-            // modern path -> our path (when they differ)
-            def renamed = ['textures/entity/shield_base_nopattern.png': 'textures/entity/shield.png',
-                           'textures/gui/sprites/container/slot/shield.png': 'textures/gui/slot_shield.png']
             new ZipFile(new File(versionsDir, "${version}/${version}.jar")).withCloseable { jar ->
-                (sprites.collectEntries { [it, it] } + renamed).each { path, ourPath ->
+                sprites.each { path ->
                     def entry = jar.getEntry("assets/minecraft/${path}")
-                    if (!entry && renamed.containsKey(path)) {
-                        // Newer versions may move textures into subfolders: look the file up by its name.
-                        def fileName = path.substring(path.lastIndexOf('/') + 1)
-                        def parent = path.substring(0, path.indexOf('/', 'textures/'.length()))
-                        entry = jar.entries().find {
-                            it.name.startsWith("assets/minecraft/${parent}/") && it.name.endsWith("/${fileName}")
-                        }
-                    }
                     if (entry) {
-                        put("assets/moderncombat/${ourPath}", jar.getInputStream(entry).bytes)
+                        put("assets/moderncombat/${path}", jar.getInputStream(entry).bytes)
                         textures++
                     }
                 }
