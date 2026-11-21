@@ -9,6 +9,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.item.ItemSword;
 import net.minecraftforge.common.util.FakePlayer;
 import net.minecraftforge.event.entity.EntityEvent;
+import net.minecraftforge.event.entity.EntityJoinWorldEvent;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
 import net.minecraftforge.event.entity.player.AttackEntityEvent;
 import net.minecraftforge.event.entity.player.PlayerUseItemEvent;
@@ -62,6 +63,19 @@ public class CombatEvents {
         if (ctx == null || !ctx.selfHandled) return;
         if (event.source.getEntity() == ctx.player && event.source.getSourceOfDamage() == ctx.player) {
             event.ammount *= ModernAttack.chargeMultiplier(ctx.strength);
+        }
+    }
+
+    /** Runs after other mods changed the damage, right before 1.7.10 applies armor. */
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public void onLivingHurtArmor(LivingHurtEvent event) {
+        if (ModConfig.modernArmor) ModernArmor.onLivingHurt(event);
+    }
+
+    @SubscribeEvent
+    public void onJoinWorld(EntityJoinWorldEvent event) {
+        if (!event.world.isRemote && event.entity instanceof EntityPlayer && !(event.entity instanceof FakePlayer)) {
+            ModernFoodStats.install((EntityPlayer) event.entity);
         }
     }
 

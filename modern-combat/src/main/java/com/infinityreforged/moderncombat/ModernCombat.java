@@ -31,7 +31,7 @@ public class ModernCombat {
 
     public static final String MODID = "moderncombat";
     public static final String NAME = "Modern Combat";
-    public static final String VERSION = "0.1.0";
+    public static final String VERSION = "0.2.0";
 
     public static final Logger LOG = LogManager.getLogger(NAME);
 
@@ -68,5 +68,7 @@ public class ModernCombat {
     public void postInit(FMLPostInitializationEvent event) {
         // All items are registered by now, so overrides by registry name can be resolved.
         WeaponStats.init();
+        ModernArmor.init();
+        ModernFoodStats.init();
     }
 }

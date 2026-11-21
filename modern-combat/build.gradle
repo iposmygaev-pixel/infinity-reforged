@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'com.infinityreforged'
-version = '0.1.0'
+version = '0.2.0'
 
 base {
     archivesName = 'ModernCombat-1.7.10'

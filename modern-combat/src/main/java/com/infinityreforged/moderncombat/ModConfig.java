@@ -18,11 +18,14 @@ public final class ModConfig {
     public static boolean modernExhaustion = true;
     public static boolean disableSwordBlocking = true;
     public static boolean scaleSelfHandledAttacks = true;
+    public static boolean modernArmor = true;
+    public static boolean modernRegeneration = true;
 
     // weapons
     public static boolean modernVanillaDamage = true;
     public static boolean adjustModdedToolDamage = true;
     public static String[] attackSpeedOverrides = new String[0];
+    public static String[] armorToughness = new String[0];
 
     // client
     public static String attackIndicator = "CROSSHAIR";
@@ -79,6 +82,18 @@ public final class ModConfig {
             true,
             "Scale damage of weapons that run their own attack code (e.g. Tinkers' Construct) by the attack charge.");
 
+        modernArmor = cfg.getBoolean(
+            "modernArmor",
+            CAT_GENERAL,
+            true,
+            "1.9+ armor formula: strong hits pierce armor, armor toughness resists it, durability loss is damage / 4.\n"
+                + "Special modded armor (ISpecialArmor: IC2, Draconic Evolution...) keeps its own logic.");
+        modernRegeneration = cfg.getBoolean(
+            "modernRegeneration",
+            CAT_GENERAL,
+            true,
+            "1.9+ regeneration: fast healing from saturation while the food bar is full; slow healing costs 6 exhaustion.");
+
         modernVanillaDamage = cfg.getBoolean(
             "modernVanillaDamage",
             CAT_WEAPONS,
@@ -95,6 +110,13 @@ public final class ModConfig {
             DEFAULT_OVERRIDES,
             "Per-item attack speed. Format: modid:item=speed or modid:item=speed,damageBonus\n"
                 + "Base player attack speed is 4.0 (fist). Swords 1.6, axes 0.8-1.0, pickaxes 1.2, shovels 1.0.");
+
+        armorToughness = cfg.getStringList(
+            "armorToughness",
+            CAT_WEAPONS,
+            new String[0],
+            "Armor toughness for modded armor pieces. Format: modid:item=toughness\n"
+                + "Vanilla diamond armor has 2 per piece (built in).");
 
         attackIndicator = cfg.getString(
             "attackIndicator",
