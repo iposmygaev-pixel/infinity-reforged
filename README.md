@@ -46,12 +46,25 @@
 | `ModernCombat-Assets.zip` | Звуки ударов (крит, сметающий, сильный, слабый, отбрасывание) и блока щитом, спрайты индикатора атаки и взмаха, текстура модели щита | Modern Combat |
 | `ModernFont-Assets.zip` | Глифы шрифта: кириллица, греческий, буквы с диакритикой | Modern Font |
 
+### Рецепты (MineTweaker)
+
+Скрипты из папки [`scripts`](scripts) кладутся в `scripts/` сборки и в `modpack/<режим>/scripts`
+(FTB Infinity копирует оттуда скрипты выбранного режима).
+
+| Скрипт | Что добавляет | Источник |
+|---|---|---|
+| [`CreativeStrongbox.zs`](scripts/CreativeStrongbox.zs) | Творческий сундук (Thermal Expansion) на экстремальном верстаке Avaritia 9×9; катализатор бесконечности (инфузия Thaumcraft), нейтрониевый слиток (людикрит + сингулярность AE2), слиток бесконечности (соты + осколок хаоса, не расходуется) | [r/feedthebeast](https://www.reddit.com/r/feedthebeast/comments/40w1nm/proposing_an_expert_recipe_for_the_creative/) |
+
+Рецепту нужен 8-кратный сжатый булыжник: в режиме Expert установка снимает его запрет
+(комментирует 4 строки в `ExtraUtilities.zs`).
+
 ### Сторонние моды (ставятся вручную)
 
 | Мод | Зачем | Где взять |
 |---|---|---|
 | AppleCore 3.4.0 | Насыщение и сытость еды в подсказке и на полоске голода | [Modrinth](https://modrinth.com/mod/applecore-unofficial) (`AppleCore-3.4.0.jar`) |
 | UniMixins | Нужен для AppleCore | [Modrinth](https://modrinth.com/mod/unimixins) |
+| Mouse Tweaks | Shift + ЛКМ с протягиванием — быстрый перенос предметов между инвентарями | CurseForge (версия для 1.7.10) |
 
 Modern Combat совместим с AppleCore: регенерация 1.9+ тогда работает через события AppleCore.
 
@@ -67,6 +80,7 @@ Modern Combat совместим с AppleCore: регенерация 1.9+ то�
 | `shaderpacks/<шейдерпак>.txt` | Настройки шейдерпаков (BSL: мягкие тени и TAA; Sildur's: тени 4096 px на 60 блоков и TAA). Значения, которые вы поменяли сами в *Shader Options*, сохраняются |
 | `shaderpacks/.infinity-reforged.json` | Какие настройки и какой выбор шейдера сделала установка (чтобы отличать их от ваших) |
 | `config/moderncombat.cfg`, `config/modernfont.cfg` | Создаются модами при первом запуске |
+| `scripts/`, `modpack/<режим>/scripts/` | Кладутся наши скрипты MineTweaker; в `ExtraUtilities.zs` комментируется запрет сжатого булыжника 5×–8× |
 | `config/AppleCore.cfg` | Отключается мигающая полоска истощения за полоской голода (`show.food.exhaustion.hud.underlay=false`) |
 
 ### Известные проблемы
@@ -82,6 +96,8 @@ Modern Combat совместим с AppleCore: регенерация 1.9+ то�
 
 | Дата | Что | Изменения |
 |---|---|---|
+| 2026-11-21 | Рецепты | Крафт творческого сундука (MineTweaker) |
+| 2026-11-21 | Modern Combat 0.3.0 | Позы щита в руке и 3D-иконка в инвентаре |
 | 2026-11-21 | Modern Combat 0.3.0 | Щит: блок урона спереди, отскок стрел, отталкивание, выбивание топором, звук блока |
 | 2026-11-21 | Шейдеры | Добавлен BSL Shaders Classic (мягкие тени), выбран по умолчанию; у Sildur's отмечена рябь теней |
 | 2026-11-21 | Шейдеры | Тени 4096 px и сглаживание TAA против ряби при падении и быстром движении |

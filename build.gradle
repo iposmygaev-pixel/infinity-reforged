@@ -426,8 +426,42 @@ tasks.register('tweakConfigs') {
     }
 }
 
+// MineTweaker scripts from the repository's scripts/ folder. FTB Infinity copies the active mode's scripts
+// from modpack/<mode>/scripts, so they are put there as well as into the live scripts/ folder.
+tasks.register('installScripts') {
+    group = 'infinity reforged'
+    description = 'Copies MineTweaker scripts (e.g. the Creative Strongbox recipe) into the modpack.'
+    doLast {
+        def sources = (file('scripts').listFiles() ?: []).findAll { it.name.endsWith('.zs') }
+        if (!sources) return
+        def targets = [new File(instanceDir, 'scripts')]
+        (new File(instanceDir, 'modpack').listFiles() ?: []).each { mode ->
+            def dir = new File(mode, 'scripts')
+            if (dir.isDirectory()) targets << dir
+        }
+        targets.each { dir ->
+            dir.mkdirs()
+            sources.each { src ->
+                new File(dir, src.name).bytes = src.bytes
+            }
+            // The Creative Strongbox recipe needs 8x compressed cobblestone, which Expert mode disables.
+            def extraUtils = new File(dir, 'ExtraUtilities.zs')
+            if (extraUtils.isFile()) {
+                def text = extraUtils.getText('UTF-8')
+                def updated = text.replaceAll(/(?m)^(\s*)(recipes\.remove\(<ExtraUtilities:cobblestone_compressed:[4-7]>\);)/,
+                    '$1// [infinity-reforged] $2')
+                if (updated != text) {
+                    extraUtils.write(updated, 'UTF-8')
+                    logger.lifecycle("  ${instanceDir.toPath().relativize(extraUtils.toPath())}: re-enabled compressed cobblestone 5x-8x")
+                }
+            }
+            logger.lifecycle("  scripts -> ${instanceDir.toPath().relativize(dir.toPath())}: ${sources*.name.join(', ')}")
+        }
+    }
+}
+
 tasks.register('install') {
     group = 'infinity reforged'
     description = 'Builds and installs everything into the modpack: mods, texture packs, the sound pack and the shader pack. Close the game first.'
-    dependsOn 'installMods', 'installTextures', 'installAssets', 'installShaders', 'tweakConfigs'
+    dependsOn 'installMods', 'installTextures', 'installAssets', 'installShaders', 'tweakConfigs', 'installScripts'
 }
