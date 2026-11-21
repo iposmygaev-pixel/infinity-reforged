@@ -148,7 +148,7 @@ tasks.register('installTextures') {
         packsDir.mkdirs()
         texturePacks.each { pack ->
             def target = new File(packsDir, pack.file)
-            (packsDir.listFiles() ?: []).findAll { it.name.startsWith(pack.prefix) && it.name != pack.file }.each {
+            (packsDir.listFiles() ?: []).findAll { it.name.startsWith(pack.prefix) && it.name.endsWith('.zip') && it.name != pack.file }.each {
                 it.delete()
                 logger.lifecycle("  removed old ${it.name}")
             }
@@ -188,7 +188,7 @@ tasks.register('installShaders') {
         def dir = new File(instanceDir, 'shaderpacks')
         dir.mkdirs()
         def target = new File(dir, shaderPack.file)
-        (dir.listFiles() ?: []).findAll { it.name.startsWith(shaderPack.prefix) && it.name != shaderPack.file }.each {
+        (dir.listFiles() ?: []).findAll { it.name.startsWith(shaderPack.prefix) && it.name.endsWith('.zip') && it.name != shaderPack.file }.each {
             it.delete()
             logger.lifecycle("  removed old ${it.name}")
         }
@@ -205,6 +205,19 @@ tasks.register('installShaders') {
             target.delete()
             tmp.renameTo(target)
             logger.lifecycle("  installed ${shaderPack.file}")
+        }
+
+        // Default shader options: a finer shadow map stops the player's shadow from flickering while jumping
+        // (Fast profile: 1024 px over 90 blocks ~ 0.18 block per texel; 2048 over 60 ~ 0.06).
+        // Options the player already set in Shader Options are kept.
+        def shaderOptions = new File(dir, shaderPack.file + '.txt')
+        def optionLines = shaderOptions.isFile() ? shaderOptions.readLines('UTF-8') : []
+        def defaults = [shadowMapResolution: '2048', shadowDistance: '60.0']
+        def added = defaults.findAll { key, value -> !optionLines.any { it.startsWith("${key}=") } }
+        if (added) {
+            added.each { key, value -> optionLines << "${key}=${value}" }
+            shaderOptions.write(optionLines.join(System.lineSeparator()) + System.lineSeparator(), 'UTF-8')
+            logger.lifecycle("  shader options: ${added.collect { k, v -> "${k}=${v}" }.join(', ')}")
         }
 
         // Select it in OptiFine unless the player chose another shader pack.
