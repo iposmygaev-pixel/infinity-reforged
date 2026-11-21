@@ -14,7 +14,9 @@ evaluationDependsOnChildren()
 //   instanceDir   modpack instance (folder that contains "mods")
 //                 default: <home>/curseforge/minecraft/Instances/FTB Infinity Evolved
 //   serverDir     optional: a server folder to install the mods into as well
-//   minecraftDir  official launcher folder, used to build the asset pack from a modern version
+//   minecraftDir  folder with a modern vanilla Minecraft (versions/, assets/) for the sound pack
+//                 default: official launcher .minecraft, then <home>/curseforge/minecraft/Install
+//   texturePacks  false to skip downloading the Modernity texture packs
 //   assetsVersion optional: which modern version to take sounds/sprites from (default: newest)
 // ---------------------------------------------------------------------------------------------
 def localProps = new Properties()
@@ -34,7 +36,7 @@ def defaultMinecraftDir = os.contains('win') ? "${System.getenv('APPDATA')}/.min
 
 def instanceDir = file(setting('instanceDir', "${home}/curseforge/minecraft/Instances/FTB Infinity Evolved"))
 def serverDirSetting = setting('serverDir', null)
-def minecraftDir = file(setting('minecraftDir', defaultMinecraftDir))
+def minecraftDirSetting = setting('minecraftDir', null)
 def assetsVersion = setting('assetsVersion', null)
 
 def modProjects = subprojects.findAll { it.plugins.hasPlugin('com.gtnewhorizons.retrofuturagradle') }
@@ -88,31 +90,130 @@ def compareVersions = { List a, List b ->
     return 0
 }
 
+// Texture packs downloaded from Modrinth (sha1-verified). Later entries override earlier ones.
+def texturePacks = [
+    [title : 'Modernity (vanilla textures, JAPPA style)', prefix: 'Modernity-f1-',
+     file  : 'Modernity-f1-3.10.3.1.zip',
+     url   : 'https://cdn.modrinth.com/data/rx58ZUPu/versions/zb57cHJj/Modernity-f1-3.10.3.1.zip',
+     sha1  : 'd3d5e2ca8de846c6719ae1c2766190b6f2fe133d'],
+    [title : 'Modernity Adjunct (mod textures)', prefix: 'ModernityAdjunct-f1-',
+     file  : 'ModernityAdjunct-f1-1.7.1.zip',
+     url   : 'https://cdn.modrinth.com/data/pS9o7zup/versions/a4L41PU7/ModernityAdjunct-f1-1.7.1.zip',
+     sha1  : 'e31296c8346f558ef2a0b858bd97ae9ab46501f6'],
+]
+def combatPackName = 'ModernCombat-Assets.zip'
+def installTextures = setting('texturePacks', 'true') != 'false'
+
+def sha1Of = { File f ->
+    def digest = java.security.MessageDigest.getInstance('SHA-1')
+    f.eachByte(1 << 16) { byte[] buf, int len -> digest.update(buf, 0, len) }
+    digest.digest().encodeHex().toString()
+}
+
+/**
+ * Enables our packs in options.txt in the right priority (1.7.10: the last entry wins) and keeps the
+ * player's other packs. Older versions of our packs are dropped from the list.
+ */
+def syncPackOrder = {
+    def options = new File(instanceDir, 'options.txt')
+    if (!options.isFile()) {
+        logger.lifecycle('  options.txt not found yet: start the game once, then run install again ' +
+            '(or enable the packs in Options > Resource Packs)')
+        return
+    }
+    def packsDir = new File(instanceDir, 'resourcepacks')
+    def ours = texturePacks.collect { it.file } + [combatPackName]
+    def wanted = ours.findAll { new File(packsDir, it).isFile() }
+    def lines = options.readLines('UTF-8')
+    def i = lines.findIndexOf { it.startsWith('resourcePacks:') }
+    def list = i >= 0 ? (new JsonSlurper().parseText(lines[i].substring('resourcePacks:'.length())) as List) : []
+    def kept = list.findAll { name -> !ours.contains(name) && !texturePacks.any { name.startsWith(it.prefix) } }
+    def result = kept + wanted
+    if (result != list) {
+        def line = 'resourcePacks:' + JsonOutput.toJson(result)
+        if (i >= 0) lines[i] = line else lines << line
+        options.write(lines.join(System.lineSeparator()) + System.lineSeparator(), 'UTF-8')
+    }
+    logger.lifecycle("  resource packs enabled: ${wanted.join(', ')}")
+}
+
+tasks.register('installTextures') {
+    group = 'infinity reforged'
+    description = 'Downloads the Modernity texture packs (modern textures for vanilla and mods) into the instance.'
+    onlyIf { installTextures }
+    doLast {
+        def packsDir = new File(instanceDir, 'resourcepacks')
+        packsDir.mkdirs()
+        texturePacks.each { pack ->
+            def target = new File(packsDir, pack.file)
+            (packsDir.listFiles() ?: []).findAll { it.name.startsWith(pack.prefix) && it.name != pack.file }.each {
+                it.delete()
+                logger.lifecycle("  removed old ${it.name}")
+            }
+            if (target.isFile() && sha1Of(target) == pack.sha1) {
+                logger.lifecycle("  ${pack.title}: up to date")
+                return
+            }
+            logger.lifecycle("  downloading ${pack.title}...")
+            def tmp = new File(packsDir, pack.file + '.part')
+            tmp.withOutputStream { out -> new URL(pack.url).withInputStream { out << it } }
+            if (sha1Of(tmp) != pack.sha1) {
+                tmp.delete()
+                throw new GradleException("Checksum mismatch for ${pack.file}; try again later.")
+            }
+            target.delete()
+            tmp.renameTo(target)
+            logger.lifecycle("  installed ${pack.file}")
+        }
+        syncPackOrder()
+    }
+}
+
 tasks.register('installAssets') {
     group = 'infinity reforged'
-    description = 'Builds the Modern Combat asset pack from your own modern Minecraft install and enables it in the instance.'
+    description = 'Builds the Modern Combat sound/sprite pack from your own modern Minecraft install (official launcher or CurseForge).'
+    mustRunAfter 'installTextures'
     doLast {
-        def versionsDir = new File(minecraftDir, 'versions')
-        def candidates = (versionsDir.listFiles() ?: []).findAll {
-            it.name ==~ /[\d.]+/ && new File(it, "${it.name}.jar").isFile() && new File(it, "${it.name}.json").isFile()
-        }*.name
-        def modern = candidates.findAll { compareVersions(versionKey(it), [1, 20, 2]) >= 0 }
-        def version = assetsVersion ?: modern.max { a, b -> compareVersions(versionKey(a), versionKey(b)) }
-        if (!version || !candidates.contains(version)) {
-            logger.warn("Skipping asset pack: no Minecraft 1.20.2+ found in ${minecraftDir}. " +
-                'Launch a modern version once in the official launcher, or set minecraftDir in local.properties.')
+        // Where a modern vanilla Minecraft may be installed: the setting, or the official launcher and CurseForge.
+        def roots = minecraftDirSetting ? [file(minecraftDirSetting)]
+            : [file(defaultMinecraftDir), file("${home}/curseforge/minecraft/Install")]
+        def found = []
+        roots.each { root ->
+            def versionsDir = new File(root, 'versions')
+            (versionsDir.listFiles() ?: []).each { dir ->
+                def v = dir.name
+                if (v ==~ /[\d.]+/ && new File(dir, "${v}.jar").isFile() && new File(dir, "${v}.json").isFile()
+                    && compareVersions(versionKey(v), [1, 20, 2]) >= 0
+                    && (!assetsVersion || assetsVersion == v)) {
+                    found << [root: root, version: v]
+                }
+            }
+        }
+        def pick = found.max { a, b -> compareVersions(versionKey(a.version), versionKey(b.version)) }
+        if (!pick) {
+            logger.warn("Skipping sound pack: no Minecraft 1.20.2+ found in ${roots.join(' or ')}. " +
+                'Launch vanilla 1.21 once (official launcher or CurseForge), or set minecraftDir in local.properties.')
+            syncPackOrder()
             return
         }
-        logger.lifecycle("Asset pack from Minecraft ${version} (${minecraftDir})")
+        File mcDir = pick.root
+        String version = pick.version
+        def versionsDir = new File(mcDir, 'versions')
+        logger.lifecycle("Sound pack from Minecraft ${version} (${mcDir})")
 
         def slurper = new JsonSlurper()
         def versionJson = slurper.parse(new File(versionsDir, "${version}/${version}.json"))
-        def index = slurper.parse(new File(minecraftDir, "assets/indexes/${versionJson.assetIndex.id}.json"))
+        def indexFile = new File(mcDir, "assets/indexes/${versionJson.assetIndex.id}.json")
+        if (!indexFile.isFile()) {
+            logger.warn("Skipping sound pack: ${indexFile} is missing. Launch Minecraft ${version} once.")
+            syncPackOrder()
+            return
+        }
+        def index = slurper.parse(indexFile)
 
         def packs = new File(instanceDir, 'resourcepacks')
         packs.mkdirs()
-        def packName = 'ModernCombat-Assets.zip'
-        def zipFile = new File(packs, packName)
+        def zipFile = new File(packs, combatPackName)
 
         def soundPrefix = 'minecraft/sounds/entity/player/attack/'
         def sounds = [:].withDefault { [] }
@@ -132,7 +233,7 @@ tasks.register('installAssets') {
                 if (!key.startsWith(soundPrefix) || !key.endsWith('.ogg')) return
                 def name = key.substring(soundPrefix.length())
                 def event = name.replaceAll(/\d*\.ogg$/, '')
-                def object = new File(minecraftDir, "assets/objects/${info.hash.substring(0, 2)}/${info.hash}")
+                def object = new File(mcDir, "assets/objects/${info.hash.substring(0, 2)}/${info.hash}")
                 if (!object.isFile()) return
                 put("assets/moderncombat/sounds/attack/${name}", object.bytes)
                 sounds[event] << "attack/${name - '.ogg'}"
@@ -155,29 +256,13 @@ tasks.register('installAssets') {
             }
             zip.finish()
         }
-        logger.lifecycle("  ${packName}: ${sounds.size()} sound events, ${textures} textures")
-
-        // Enable the pack in options.txt (1.7.10 format: resourcePacks:["a.zip","b.zip"]).
-        def options = new File(instanceDir, 'options.txt')
-        if (options.isFile()) {
-            def lines = options.readLines('UTF-8')
-            def i = lines.findIndexOf { it.startsWith('resourcePacks:') }
-            def list = i >= 0 ? (slurper.parseText(lines[i].substring('resourcePacks:'.length())) as List) : []
-            if (!list.contains(packName)) {
-                list << packName
-                def line = 'resourcePacks:' + JsonOutput.toJson(list)
-                if (i >= 0) lines[i] = line else lines << line
-                options.write(lines.join(System.lineSeparator()) + System.lineSeparator(), 'UTF-8')
-                logger.lifecycle('  enabled in options.txt')
-            }
-        } else {
-            logger.lifecycle('  options.txt not found yet: enable the pack once in Options > Resource Packs')
-        }
+        logger.lifecycle("  ${combatPackName}: ${sounds.size()} sound events, ${textures} textures")
+        syncPackOrder()
     }
 }
 
 tasks.register('install') {
     group = 'infinity reforged'
-    description = 'Builds and installs everything into the modpack: mods and the asset pack. Close the game first.'
-    dependsOn 'installMods', 'installAssets'
+    description = 'Builds and installs everything into the modpack: mods, texture packs and the sound pack. Close the game first.'
+    dependsOn 'installMods', 'installTextures', 'installAssets'
 }
