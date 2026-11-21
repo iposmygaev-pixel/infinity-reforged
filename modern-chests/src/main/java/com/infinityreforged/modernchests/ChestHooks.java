@@ -97,7 +97,7 @@ public final class ChestHooks {
         for (ForgeDirection side : HORIZONTAL) {
             if (pair != UNKNOWN && pair != side.ordinal()) continue;
             TileEntityChest other = neighbour(world, chest, side, block);
-            if (other == null) continue;
+            if (other == null || other.isInvalid()) continue;
             byte otherPair = getPair(other);
             if (otherPair == side.getOpposite()
                 .ordinal() || otherPair == UNKNOWN) {
@@ -219,6 +219,15 @@ public final class ChestHooks {
 
     /** TileEntityChest.checkForAdjacentChests: fills the adjacentChest* fields from the recorded pairing. */
     public static void checkForAdjacentChests(TileEntityChest chest) {
+        if (chest.isInvalid()) {
+            // Called from invalidate() when the chest is broken: like vanilla, make the former partner re-check,
+            // otherwise the remaining half keeps rendering as a double chest.
+            TileEntityChest[] old = { chest.adjacentChestZNeg, chest.adjacentChestXPos, chest.adjacentChestXNeg,
+                chest.adjacentChestZPos };
+            for (TileEntityChest other : old) {
+                if (other != null) other.adjacentChestChecked = false;
+            }
+        }
         if (chest.adjacentChestChecked) return;
         chest.adjacentChestChecked = true;
         chest.adjacentChestZNeg = null;

@@ -36,6 +36,15 @@ public class ChestTestCommand extends CommandBase {
         int x = parseInt(sender, args[1]);
         int y = parseInt(sender, args[2]);
         int z = parseInt(sender, args[3]);
+        if ("break".equals(args[0])) {
+            world.setBlockToAir(x, y, z);
+            log(sender, "break " + x + " " + y + " " + z);
+            return;
+        }
+        if ("client".equals(args[0])) {
+            log(sender, "client " + x + " " + y + " " + z + ": " + ClientChestCheck.describe(x, y, z));
+            return;
+        }
         if ("place".equals(args[0])) {
             float yaw = (float) parseDouble(sender, args[4]);
             boolean sneak = args.length > 5 && "sneak".equals(args[5]);
