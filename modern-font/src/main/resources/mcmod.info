@@ -1,0 +1,15 @@
+[
+  {
+    "modid": "modernfont",
+    "name": "Modern Font",
+    "description": "Cyrillic and other non-Latin text drawn with the pixel font of modern Minecraft, at the same size as Latin text.",
+    "version": "${version}",
+    "mcversion": "1.7.10",
+    "url": "https://github.com/iposmygaev-pixel/infinity-reforged",
+    "authorList": ["Infinity Reforged"],
+    "credits": "",
+    "logoFile": "",
+    "screenshots": [],
+    "dependencies": []
+  }
+]

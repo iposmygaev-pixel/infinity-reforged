@@ -103,6 +103,7 @@ def texturePacks = [
      sha1  : 'e31296c8346f558ef2a0b858bd97ae9ab46501f6'],
 ]
 def combatPackName = 'ModernCombat-Assets.zip'
+def fontPackName = 'ModernFont-Assets.zip'
 def installTextures = setting('texturePacks', 'true') != 'false'
 
 def sha1Of = { File f ->
@@ -123,7 +124,7 @@ def syncPackOrder = {
         return
     }
     def packsDir = new File(instanceDir, 'resourcepacks')
-    def ours = texturePacks.collect { it.file } + [combatPackName]
+    def ours = texturePacks.collect { it.file } + [combatPackName, fontPackName]
     def wanted = ours.findAll { new File(packsDir, it).isFile() }
     def lines = options.readLines('UTF-8')
     def i = lines.findIndexOf { it.startsWith('resourcePacks:') }
@@ -310,6 +311,35 @@ tasks.register('installAssets') {
             zip.finish()
         }
         logger.lifecycle("  ${combatPackName}: ${sounds.size()} sound events, ${textures} textures")
+
+        // Modern Font: the bitmap font definition and its textures (Cyrillic, Greek, accented letters...).
+        new ZipFile(new File(versionsDir, "${version}/${version}.jar")).withCloseable { jar ->
+            def fontJson = jar.getEntry('assets/minecraft/font/include/default.json') ?: jar.getEntry('assets/minecraft/font/default.json')
+            if (!fontJson) {
+                logger.warn('  font definition not found in the jar; skipping the font pack')
+                return
+            }
+            def font = slurper.parse(jar.getInputStream(fontJson))
+            def providers = font.providers.findAll { it.type == 'bitmap' && !it.file.endsWith('/ascii.png') }
+            new File(packs, fontPackName).withOutputStream { stream ->
+                def zip = new ZipOutputStream(stream)
+                def put = { String path, byte[] data ->
+                    zip.putNextEntry(new ZipEntry(path))
+                    zip.write(data)
+                    zip.closeEntry()
+                }
+                put('pack.mcmeta', JsonOutput.prettyPrint(JsonOutput.toJson(
+                    [pack: [pack_format: 1, description: "Modern Font: glyphs from Minecraft ${version}"]])).getBytes('UTF-8'))
+                put('assets/modernfont/font/default.json', JsonOutput.toJson([providers: providers]).getBytes('UTF-8'))
+                providers.each { prov ->
+                    def name = prov.file.substring(prov.file.lastIndexOf('/') + 1)
+                    def entry = jar.getEntry("assets/minecraft/textures/font/${name}")
+                    if (entry) put("assets/modernfont/textures/font/${name}", jar.getInputStream(entry).bytes)
+                }
+                zip.finish()
+            }
+            logger.lifecycle("  ${fontPackName}: ${providers.size()} glyph sheets")
+        }
         syncPackOrder()
     }
 }
