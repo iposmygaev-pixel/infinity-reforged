@@ -11,3 +11,4 @@ out/
 bin/
 *.zip
 __pycache__/
+/*.jar
