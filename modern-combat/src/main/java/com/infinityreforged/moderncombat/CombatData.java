@@ -15,6 +15,8 @@ public class CombatData implements IExtendedEntityProperties {
     public static final String KEY = "ModernCombat";
 
     public int ticksSinceLastSwing;
+    /** Ticks left before the shield can be raised again (after an axe hit). */
+    public int shieldCooldown;
     public ItemStack lastHeld;
     /** Set from the network thread when the client reports a swing; consumed on the next player tick. */
     public volatile boolean swingPending;

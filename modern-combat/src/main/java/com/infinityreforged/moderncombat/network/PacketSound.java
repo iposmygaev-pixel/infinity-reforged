@@ -18,9 +18,10 @@ public class PacketSound implements IMessage {
     public static final int STRONG = 3;
     public static final int WEAK = 4;
     public static final int NODAMAGE = 5;
+    public static final int SHIELD_BLOCK = 6;
 
     public static final String[] NAMES = { "attack.knockback", "attack.crit", "attack.sweep", "attack.strong",
-        "attack.weak", "attack.nodamage" };
+        "attack.weak", "attack.nodamage", "shield.block" };
 
     public int sound;
     public double x;

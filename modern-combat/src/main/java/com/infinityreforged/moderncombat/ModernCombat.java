@@ -1,5 +1,6 @@
 package com.infinityreforged.moderncombat;
 
+import com.infinityreforged.moderncombat.network.PacketShieldCooldown;
 import com.infinityreforged.moderncombat.network.PacketSound;
 import com.infinityreforged.moderncombat.network.PacketSweep;
 import com.infinityreforged.moderncombat.network.PacketSwing;
@@ -17,8 +18,11 @@ import cpw.mods.fml.common.event.FMLPostInitializationEvent;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
 import cpw.mods.fml.common.network.NetworkRegistry;
 import cpw.mods.fml.common.network.simpleimpl.SimpleNetworkWrapper;
+import cpw.mods.fml.common.registry.GameRegistry;
 import cpw.mods.fml.relauncher.Side;
+import net.minecraft.item.ItemStack;
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.oredict.ShapedOreRecipe;
 
 /**
  * Modern Combat: brings the Minecraft 1.9+ combat system to 1.7.10.
@@ -32,7 +36,7 @@ public class ModernCombat {
 
     public static final String MODID = "moderncombat";
     public static final String NAME = "Modern Combat";
-    public static final String VERSION = "0.2.1";
+    public static final String VERSION = "0.3.0";
 
     public static final Logger LOG = LogManager.getLogger(NAME);
 
@@ -42,6 +46,7 @@ public class ModernCombat {
     public static CommonProxy proxy;
 
     public static SimpleNetworkWrapper network;
+    public static ItemShield shield;
 
     @EventHandler
     public void preInit(FMLPreInitializationEvent event) {
@@ -51,12 +56,20 @@ public class ModernCombat {
         network.registerMessage(PacketSwing.Handler.class, PacketSwing.class, 0, Side.SERVER);
         network.registerMessage(PacketSweep.Handler.class, PacketSweep.class, 1, Side.CLIENT);
         network.registerMessage(PacketSound.Handler.class, PacketSound.class, 2, Side.CLIENT);
+        network.registerMessage(PacketShieldCooldown.Handler.class, PacketShieldCooldown.class, 3, Side.CLIENT);
+
+        shield = new ItemShield();
+        GameRegistry.registerItem(shield, "shield");
 
         proxy.preInit();
     }
 
     @EventHandler
     public void init(FMLInitializationEvent event) {
+        GameRegistry.addRecipe(
+            new ShapedOreRecipe(new ItemStack(shield), "WIW", "WWW", " W ", 'W', "plankWood", 'I', "ingotIron"));
+        MinecraftForge.EVENT_BUS.register(new ShieldHandler());
+
         CombatEvents events = new CombatEvents();
         MinecraftForge.EVENT_BUS.register(events);
         FMLCommonHandler.instance()

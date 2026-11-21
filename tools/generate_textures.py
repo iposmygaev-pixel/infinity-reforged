@@ -112,7 +112,59 @@ def sweep():
         write_png(os.path.join(out, "sweep_%d.png" % frame), size, size, img)
 
 
+def shield():
+    # Model texture, same box layout as modern Minecraft (64x64): plate 12x22x1 at (0,0), handle 2x6x6 at (26,0).
+    img = blank(64, 64)
+    wood = [(143, 104, 62, 255), (126, 91, 54, 255), (158, 117, 71, 255)]
+    dark = (88, 62, 35, 255)
+    iron = (170, 170, 176, 255)
+    iron_dark = (118, 118, 124, 255)
+
+    def plank(x, y):
+        col = wood[(x // 3) % 3]
+        if x % 3 == 0 or (y * 7 + x * 3) % 23 == 0:
+            return dark
+        return col
+
+    def fill(x0, y0, w, h, fn):
+        for y in range(y0, y0 + h):
+            for x in range(x0, x0 + w):
+                img[y][x] = fn(x - x0, y - y0)
+
+    # Plate faces: front (1,1) 12x22 with an iron rim and boss, back (14,1) plain planks, edges in iron.
+    def front(x, y):
+        if x == 0 or x == 11 or y == 0 or y == 21:
+            return iron_dark if (x + y) % 2 else iron
+        if 4 <= x <= 7 and 9 <= y <= 12:
+            return iron if (x in (5, 6) and y in (10, 11)) else iron_dark
+        return plank(x, y)
+    fill(1, 1, 12, 22, front)
+    fill(14, 1, 12, 22, lambda x, y: plank(x + 1, y + 3))
+    fill(1, 0, 12, 1, lambda x, y: iron)
+    fill(13, 0, 12, 1, lambda x, y: iron_dark)
+    fill(0, 1, 1, 22, lambda x, y: iron_dark)
+    fill(13, 1, 1, 22, lambda x, y: iron)
+    # Handle: dark wood all around.
+    fill(26, 0, 16, 12, lambda x, y: dark if (x + y) % 4 else (104, 74, 42, 255))
+    write_png(os.path.join(ROOT, "entity", "shield.png"), 64, 64, img)
+
+    # Inventory icon: the front of the shield.
+    icon = blank(16, 16)
+    for y in range(1, 15):
+        inset = 0 if y < 11 else (y - 10)
+        for x in range(3 + inset, 13 - inset):
+            edge = x in (3 + inset, 12 - inset) or y in (1, 14 - 0) or (y >= 11 and (x == 3 + inset or x == 12 - inset))
+            if y == 1 or edge:
+                icon[y][x] = iron if (x + y) % 2 else iron_dark
+            elif 6 <= x <= 9 and 6 <= y <= 9:
+                icon[y][x] = iron if x in (7, 8) and y in (7, 8) else iron_dark
+            else:
+                icon[y][x] = plank(x, y)
+    write_png(os.path.join(ROOT, "items", "shield.png"), 16, 16, icon)
+
+
 if __name__ == "__main__":
     hud()
     sweep()
+    shield()
     print("Textures written to", os.path.normpath(ROOT))

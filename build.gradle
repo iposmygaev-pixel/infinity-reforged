@@ -332,27 +332,33 @@ tasks.register('installAssets') {
                 [pack: [pack_format: 1, description: "Modern Combat: sounds and sprites from Minecraft ${version}"]]))
                 .getBytes('UTF-8'))
 
+            // modern sound folder -> [our sound folder / event prefix]
+            def soundSources = [(soundPrefix): 'attack', 'minecraft/sounds/item/shield/': 'shield']
             index.objects.each { String key, info ->
-                if (!key.startsWith(soundPrefix) || !key.endsWith('.ogg')) return
-                def name = key.substring(soundPrefix.length())
-                def event = name.replaceAll(/\d*\.ogg$/, '')
+                def prefix = soundSources.keySet().find { key.startsWith(it) }
+                if (!prefix || !key.endsWith('.ogg')) return
+                def group = soundSources[prefix]
+                def name = key.substring(prefix.length())
+                def event = "${group}." + name.replaceAll(/\d*\.ogg$/, '')
                 def object = new File(mcDir, "assets/objects/${info.hash.substring(0, 2)}/${info.hash}")
                 if (!object.isFile()) return
-                put("assets/moderncombat/sounds/attack/${name}", object.bytes)
-                sounds[event] << "attack/${name - '.ogg'}"
+                put("assets/moderncombat/sounds/${group}/${name}", object.bytes)
+                sounds[event] << "${group}/${name - '.ogg'}"
             }
-            def soundsJson = sounds.collectEntries { event, files -> ["attack.${event}", [category: 'player', sounds: files.sort()]] }
+            def soundsJson = sounds.collectEntries { event, files -> [event, [category: 'player', sounds: files.sort()]] }
             put('assets/moderncombat/sounds.json', JsonOutput.prettyPrint(JsonOutput.toJson(soundsJson)).getBytes('UTF-8'))
 
             def sprites = ['crosshair_attack_indicator_background', 'crosshair_attack_indicator_progress',
                            'crosshair_attack_indicator_full', 'hotbar_attack_indicator_background',
                            'hotbar_attack_indicator_progress'].collect { "textures/gui/sprites/hud/${it}.png" }
             sprites += (0..7).collect { "textures/particle/sweep_${it}.png" }
+            // modern path -> our path (when they differ)
+            def renamed = ['textures/entity/shield_base_nopattern.png': 'textures/entity/shield.png']
             new ZipFile(new File(versionsDir, "${version}/${version}.jar")).withCloseable { jar ->
-                sprites.each { path ->
+                (sprites.collectEntries { [it, it] } + renamed).each { path, ourPath ->
                     def entry = jar.getEntry("assets/minecraft/${path}")
                     if (entry) {
-                        put("assets/moderncombat/${path}", jar.getInputStream(entry).bytes)
+                        put("assets/moderncombat/${ourPath}", jar.getInputStream(entry).bytes)
                         textures++
                     }
                 }

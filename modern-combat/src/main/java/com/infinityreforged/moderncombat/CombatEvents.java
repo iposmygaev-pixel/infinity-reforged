@@ -38,6 +38,11 @@ public class CombatEvents {
             data.resetCooldown();
         }
         ++data.ticksSinceLastSwing;
+        if (data.shieldCooldown > 0) {
+            data.shieldCooldown--;
+            ItemStack using = player.getItemInUse();
+            if (using != null && using.getItem() instanceof ItemShield) player.clearItemInUse();
+        }
 
         ItemStack held = player.getCurrentEquippedItem();
         if (!CombatMath.sameItemIgnoreDurability(data.lastHeld, held)) {

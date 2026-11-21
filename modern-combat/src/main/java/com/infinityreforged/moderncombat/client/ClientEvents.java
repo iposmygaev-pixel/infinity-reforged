@@ -9,6 +9,8 @@ import org.lwjgl.opengl.GL11;
 
 import com.google.common.collect.Multimap;
 import com.infinityreforged.moderncombat.CombatData;
+import com.infinityreforged.moderncombat.ItemShield;
+import com.infinityreforged.moderncombat.ShieldHandler;
 import com.infinityreforged.moderncombat.ModConfig;
 import com.infinityreforged.moderncombat.ModernCombat;
 import com.infinityreforged.moderncombat.WeaponStats;
@@ -159,6 +161,9 @@ public class ClientEvents {
         } else if (event.type == RenderGameOverlayEvent.ElementType.HOTBAR && "HOTBAR".equals(mode)) {
             renderHotbarIndicator(event.resolution);
         }
+        if (event.type == RenderGameOverlayEvent.ElementType.HOTBAR) {
+            renderShieldCooldown(event.resolution);
+        }
     }
 
     private void renderCrosshairIndicator(ScaledResolution res) {
@@ -219,6 +224,24 @@ public class ClientEvents {
         GL11.glDisable(GL11.GL_BLEND);
         mc.getTextureManager()
             .bindTexture(Gui.icons);
+    }
+
+    /** 1.9 item cooldown overlay: a white veil over hotbar slots with a disabled shield, shrinking as it recovers. */
+    private void renderShieldCooldown(ScaledResolution res) {
+        Minecraft mc = Minecraft.getMinecraft();
+        EntityPlayer player = mc.thePlayer;
+        if (player == null) return;
+        int cooldown = CombatData.get(player).shieldCooldown;
+        if (cooldown <= 0) return;
+        int height = Math.round(16.0F * cooldown / ShieldHandler.AXE_COOLDOWN);
+        for (int slot = 0; slot < 9; slot++) {
+            ItemStack stack = player.inventory.mainInventory[slot];
+            if (stack == null || !(stack.getItem() instanceof ItemShield)) continue;
+            int x = res.getScaledWidth() / 2 - 90 + slot * 20 + 2;
+            int y = res.getScaledHeight() - 16 - 3;
+            Gui.drawRect(x, y + 16 - height, x + 16, y + 16, 0x7FFFFFFF);
+        }
+        GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
     }
 
     /** Draws part of a standalone sprite; UVs are normalized so any texture resolution works. */

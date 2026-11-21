@@ -1,5 +1,6 @@
 package com.infinityreforged.moderncombat;
 
+import com.infinityreforged.moderncombat.network.PacketShieldCooldown;
 import com.infinityreforged.moderncombat.network.PacketSound;
 import com.infinityreforged.moderncombat.network.PacketSweep;
 
@@ -15,4 +16,6 @@ public class CommonProxy {
     public void handleSweep(PacketSweep message) {}
 
     public void handleSound(PacketSound message) {}
+
+    public void handleShieldCooldown(PacketShieldCooldown message) {}
 }
