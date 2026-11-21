@@ -1,0 +1,15 @@
+[
+  {
+    "modid": "moderncombat",
+    "name": "Modern Combat",
+    "description": "Minecraft 1.9+ combat for 1.7.10: attack cooldown, charged critical hits, sweep attacks, modern weapon stats.",
+    "version": "${version}",
+    "mcversion": "1.7.10",
+    "url": "https://github.com/iposmygaev-pixel/infinity-reforged",
+    "authorList": ["Infinity Reforged"],
+    "credits": "",
+    "logoFile": "",
+    "screenshots": [],
+    "dependencies": []
+  }
+]
