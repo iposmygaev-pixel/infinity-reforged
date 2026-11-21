@@ -344,8 +344,35 @@ tasks.register('installAssets') {
     }
 }
 
+// Tweaks to other mods' configs. Applied only if the config file exists (the mod was started once).
+tasks.register('tweakConfigs') {
+    group = 'infinity reforged'
+    description = "Adjusts other mods' configs (e.g. hides AppleCore's flickering exhaustion bar)."
+    doLast {
+        def tweaks = [
+            // AppleCore: the exhaustion progress bar behind the hunger bar flickers constantly.
+            [file: 'config/AppleCore.cfg', key: 'B:show.food.exhaustion.hud.underlay', value: 'false'],
+        ]
+        tweaks.each { t ->
+            def cfg = new File(instanceDir, t.file)
+            if (!cfg.isFile()) return
+            def text = cfg.getText('UTF-8')
+            def pattern = ~/(?m)^(\s*)${java.util.regex.Pattern.quote(t.key)}=.*$/
+            if (!(text =~ pattern).find()) {
+                logger.lifecycle("  ${t.file}: ${t.key} not found, skipped")
+                return
+            }
+            def updated = text.replaceAll(pattern) { all, indent -> "${indent}${t.key}=${t.value}" }
+            if (updated != text) {
+                cfg.write(updated, 'UTF-8')
+                logger.lifecycle("  ${t.file}: ${t.key}=${t.value}")
+            }
+        }
+    }
+}
+
 tasks.register('install') {
     group = 'infinity reforged'
     description = 'Builds and installs everything into the modpack: mods, texture packs, the sound pack and the shader pack. Close the game first.'
-    dependsOn 'installMods', 'installTextures', 'installAssets', 'installShaders'
+    dependsOn 'installMods', 'installTextures', 'installAssets', 'installShaders', 'tweakConfigs'
 }
