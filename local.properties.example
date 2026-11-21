@@ -15,5 +15,5 @@
 # Set to false to skip downloading the Modernity texture packs.
 #texturePacks=false
 
-# Set to false to skip installing the shader pack.
-#shaders=false
+# Shader packs are off by default. Set to true to download them and select BSL in OptiFine.
+#shaders=true

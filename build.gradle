@@ -188,14 +188,31 @@ def shaderPacks = [
      options: [shadowMapResolution: '4096', shadowDistance: '60.0', TAA: 'true']],
 ]
 def selectedShader = 'bsl-classic'
-def installShaders = setting('shaders', 'true') != 'false'
+// Off by default; set shaders=true in local.properties to install and select them.
+def installShaders = setting('shaders', 'false') == 'true'
 
 tasks.register('installShaders') {
     group = 'infinity reforged'
     description = "Downloads the shader packs and selects one in OptiFine (optionsshaders.txt)."
-    onlyIf { installShaders }
     doLast {
         def dir = new File(instanceDir, 'shaderpacks')
+        if (!installShaders) {
+            // Shaders are off by default: undo the installer's own earlier selection in OptiFine, if still active.
+            def stateFile = new File(dir, '.infinity-reforged.json')
+            def options = new File(instanceDir, 'optionsshaders.txt')
+            if (stateFile.isFile() && options.isFile()) {
+                def selected = (new JsonSlurper().parse(stateFile) as Map).selected
+                def lines = options.readLines('UTF-8')
+                def i = lines.findIndexOf { it == "shaderPack=${selected}" }
+                if (selected && i >= 0) {
+                    lines[i] = 'shaderPack=OFF'
+                    options.write(lines.join(System.lineSeparator()) + System.lineSeparator(), 'UTF-8')
+                    logger.lifecycle('  shaders turned off in OptiFine (set shaders=true in local.properties to enable)')
+                }
+                stateFile.delete()
+            }
+            return
+        }
         dir.mkdirs()
 
         // What the installer wrote last time, to tell its own values apart from the player's.
