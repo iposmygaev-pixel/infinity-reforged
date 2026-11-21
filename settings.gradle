@@ -25,3 +25,4 @@ rootProject.name = 'infinity-reforged'
 
 include 'modern-combat'
 include 'modern-font'
+include 'modern-chests'

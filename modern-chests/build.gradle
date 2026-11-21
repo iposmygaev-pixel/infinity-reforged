@@ -1,0 +1,44 @@
+plugins {
+    id 'java'
+    id 'com.gtnewhorizons.retrofuturagradle'
+}
+
+group = 'com.infinityreforged'
+version = '0.1.0'
+
+base {
+    archivesName = 'ModernChests-1.7.10'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(8)
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+minecraft {
+    mcVersion = '1.7.10'
+    username = 'Developer'
+}
+
+processResources {
+    inputs.property 'version', project.version
+    filesMatching('mcmod.info') {
+        expand 'version': project.version
+    }
+}
+
+// Coremod: the jar carries an FML loading plugin that redirects a few vanilla chest methods.
+def corePlugin = 'com.infinityreforged.modernchests.core.ChestsCorePlugin'
+tasks.named('jar') {
+    manifest {
+        attributes('FMLCorePlugin': corePlugin, 'FMLCorePluginContainsFMLMod': 'true')
+    }
+}
+minecraft {
+    extraRunJvmArguments.add("-Dfml.coreMods.load=${corePlugin}")
+}
