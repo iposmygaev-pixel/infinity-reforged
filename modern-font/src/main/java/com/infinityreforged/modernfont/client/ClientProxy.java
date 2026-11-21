@@ -11,11 +11,13 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.resources.IReloadableResourceManager;
 import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.config.Configuration;
 
 public class ClientProxy extends CommonProxy {
 
     private boolean disableUnicodeMode = true;
+    private boolean scrollButtonText = true;
     private ModernFontRenderer renderer;
 
     @Override
@@ -28,6 +30,11 @@ public class ClientProxy extends CommonProxy {
             true,
             "Languages like Russian switch 1.7.10 to the small unicode font for ALL text. When modern glyphs are\n"
                 + "installed, keep the normal font instead (as modern versions do). 'Force Unicode Font' still works.");
+        scrollButtonText = cfg.getBoolean(
+            "scrollButtonText",
+            Configuration.CATEGORY_GENERAL,
+            true,
+            "Button labels that don't fit scroll inside the button (as in 1.19.4+) instead of spilling over it.");
         if (cfg.hasChanged()) cfg.save();
     }
 
@@ -47,6 +54,7 @@ public class ClientProxy extends CommonProxy {
         FMLCommonHandler.instance()
             .bus()
             .register(this);
+        if (scrollButtonText) MinecraftForge.EVENT_BUS.register(new ButtonTextScroller());
         ModernFont.LOG.info("Modern font renderer installed ({} glyphs)", renderer.glyphCount());
     }
 
