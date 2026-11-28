@@ -20,6 +20,7 @@ public final class ModConfig {
     public static boolean scaleSelfHandledAttacks = true;
     public static boolean modernArmor = true;
     public static boolean modernRegeneration = true;
+    public static boolean mobAttackRate = true;
 
     // weapons
     public static boolean modernVanillaDamage = true;
@@ -71,6 +72,11 @@ public final class ModConfig {
             CAT_GENERAL,
             true,
             "Attacking costs 0.1 exhaustion (modern) instead of 0.3.");
+        mobAttackRate = cfg.getBoolean(
+            "mobAttackRate",
+            CAT_GENERAL,
+            true,
+            "Mobs hit in melee at most once per second, as in 1.8+ (1.7.10 bug: zombies and most mobs hit twice per second).");
         disableSwordBlocking = cfg.getBoolean(
             "disableSwordBlocking",
             CAT_GENERAL,
